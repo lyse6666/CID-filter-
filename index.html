@@ -197,8 +197,8 @@
 </div>
 
 <script>
-    // 綁定您在 Apps Script 部署得到的正確網址
-    const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIWaIT3H0rtj_tENU0iLaxTqjHD9Hrof/exec";
+    // 修正：已移除多餘的 /exec 尾巴，對接正確的 Google 雲端 API 網址
+    const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIWaIT3H0rtj_tENU0iLaxTqjHD9Hrof";
     
     let cloudDatabase = {};
 
@@ -233,7 +233,7 @@
         });
     }
 
-    // 更新介面上的下拉選單和列表（加上點擊查看明細功能）
+    // 更新介面上的下拉選單和列表
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
@@ -258,7 +258,7 @@
             opt.text = cid;
             select.appendChild(opt);
 
-            // 2. 更新左側清單，並加入點擊彈出明細功能
+            // 2. 更新左側清單
             const item = document.createElement('div');
             item.style.padding = "6px 10px";
             item.style.margin = "5px 0";
@@ -270,13 +270,12 @@
             item.style.fontSize = "13px";
             item.title = "點擊查看詳細帳號名單";
             
-            // 滑鼠移入變色效果
             item.onmouseover = function() { this.style.backgroundColor = "#e9ecef"; };
             item.onmouseout = function() { this.style.backgroundColor = "#f8f9fa"; };
 
             item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
             
-            // 點擊事件：直接彈窗秀出該 CID 底下的所有人
+            // 點擊事件：彈窗秀出帳號清單
             item.onclick = function() {
                 const accountDetail = cloudDatabase[cid].join('\n');
                 alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${accountDetail}`);
@@ -390,7 +389,6 @@
                 const worksheet = workbook.Sheets[firstSheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                // 篩選邏輯：檢查欄位中是否包含與雲端相符的帳號名稱
                 const matchedRows = jsonData.filter(row => {
                     return Object.values(row).some(val => {
                         if (!val) return false;
@@ -404,7 +402,6 @@
                     return;
                 }
 
-                // 渲染成表格顯示出來
                 let tableHtml = `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 比對完成，共篩選出 ${matchedRows.length} 筆相符資料：</div>`;
                 tableHtml += `<div style="overflow-x: auto;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
                 
