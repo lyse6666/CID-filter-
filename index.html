@@ -3,387 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CID 篩選與狀態管理系統</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <title>CID 篩選器</title>
     <style>
-        :root {
-            --primary-color: #4e73df;
-            --success-color: #1cc88a;
-            --warning-color: #f6c23e;
-            --danger-color: #e74a3b;
-            --dark-bg: #f8f9fc;
-        }
         body {
-            background-color: var(--dark-bg);
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #121212;
+            color: #e0e0e0;
         }
-        .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        .card {
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+        }
+        .btn-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 10px 15px;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover {
+            background-color: #444;
+        }
+        .btn.active {
+            background-color: #007bff;
+            border-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #1e1e1e;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #2a2a2a;
+            color: #007bff;
+        }
+        tr:nth-child(even) {
+            background-color: #252525;
+        }
+        .status-btn {
+            padding: 5px 10px;
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-            margin-bottom: 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #fff;
+            font-weight: bold;
         }
-        .card-header {
-            background-color: #fff;
-            border-bottom: 1px solid #e3e6f0;
-            padding: 1rem 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            border-radius: 12px 12px 0 0 !important;
+        .status-on {
+            background-color: #28a745;
         }
-        .status-badge {
-            font-size: 0.85rem;
-            padding: 0.4em 0.8em;
-            border-radius: 30px;
-            font-weight: 600;
+        .status-off {
+            background-color: #dc3545;
         }
-        .badge-active { background-color: #ddfbf1; color: #00875a; }
-        .badge-inactive { background-color: #ffebe6; color: #bf2600; }
-        .cid-btn {
-            margin: 0.25rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s;
-            border: 1px solid #d1d3e2;
-            background: #fff;
-        }
-        .cid-btn:hover {
-            background: #f8f9fc;
-            transform: translateY(-1px);
-        }
-        .cid-btn.active {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 6px rgba(78, 115, 223, 0.25);
-        }
-        .sync-banner {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: none;
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .table-responsive {
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .btn-toggle-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
+        .sync-status {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 10px;
+            font-style: italic;
         }
     </style>
 </head>
 <body>
 
-    <div id="syncBanner" class="sync-banner alert alert-info shadow-lg d-flex align-items-center" role="alert">
-        <i class="fas fa-spinner fa-spin me-2" id="syncIcon"></i>
-        <span id="syncMessage">正在與雲端同步...</span>
-    </div>
+<div class="container">
+    <h2>CID 篩選器</h2>
+    
+    <div id="syncStatus" class="sync-status">正在嘗試連線雲端資料庫...</div>
+    
+    <input type="text" id="search" class="search-box" placeholder="輸入 CID 搜尋..." oninput="filterCIDs()">
+    
+    <div class="btn-container" id="btnContainer"></div>
+    
+    <div id="tableContainer"></div>
+</div>
 
-    <div class="main-container">
-        <div class="row mb-4 align-items-center">
-            <div class="col-md-6">
-                <h2 class="fw-bold text-gray-800"><i class="fas fa-filter text-primary me-2"></i>CID 篩選與狀態管理系統</h2>
-                <p class="text-muted mb-0">自動即時同步 Google Sheets 雲端資料庫</p>
-            </div>
-            <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                <button class="btn btn-primary shadow-sm" onclick="loadFromCloud()">
-                    <i class="fas fa-sync-alt me-1"></i> 手動重新整理
-                </button>
-            </div>
-        </div>
+<script>
+    // 鎖定您正確的 Google Apps Script 網址
+    const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIWaIT3H0rtj_tENU0iLaxTqjHD9Hrof/exec";
 
-        <div class="row">
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-list-ul me-2"></i>可用的 CID 清單 (<span id="cidCount">0</span>)
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <input type="text" id="cidSearch" class="form-control" placeholder="搜尋 CID..." oninput="filterCidButtons()">
-                        </div>
-                        <div id="cidContainer" class="d-flex flex-wrap" style="max-height: 500px; overflow-y: auto; padding: 5px;">
-                            <div class="text-muted text-center w-100 py-3">載入中...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    let cidDatabase = {};
+    let uploadedRawData = [];
+    let finalFilteredData = [];
+    let currentSelectedCid = "";
 
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-database me-2"></i>資料明細內容</span>
-                        <span class="badge bg-secondary" id="dataCount">未選擇 CID</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="tableContainer">
-                            <div class="text-center py-5 text-muted">
-                                <i class="fas fa-mouse-pointer fa-3x mb-3 text-gray-300"></i>
-                                <h5>請先從左側選擇一個 CID 以查看與管理資料</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    window.onload = function() {
+        // 網頁啟動時直接讀取雲端資料
+        loadFromCloud();
+    };
 
-    <script>
-        // ==========================================
-        // 核心設定：直接綁定您的真實 Google Apps Script 網址
-        // ==========================================
-        const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIWaIT3H0rtj_tENU0iLaxTqjHD9Hrof/exec";
+    function showSyncStatus(message) {
+        document.getElementById('syncStatus').innerText = message;
+    }
 
-        let cidDatabase = {};
-        let uploadedRawData = [];
-        let finalFilteredData = [];
-        let currentSelectedCid = "";
-        let cidToggleStatus = {};
+    // 自雲端撈取最新資料
+    function loadFromCloud() {
+        showSyncStatus("☁️ 正在自 Google 雲端資料庫讀取紀錄...");
+        
+        fetch(CLOUD_API_URL)
+        .then(res => res.json())
+        .then(data => {
+            cidDatabase = data || {};
+            showSyncStatus("✅ 雲端資料同步成功");
+            parseUrlParams();
+        })
+        .catch(err => {
+            console.error(err);
+            showSyncStatus("❌ 讀取雲端資料失敗，請檢查權限設定");
+            parseUrlParams();
+        });
+    }
 
-        window.onload = function() {
-            // 網頁啟動時，直接向雲端抓取最新資料
-            loadFromCloud();
-        };
-
-        // 顯示/隱藏同步橫幅
-        function showSyncStatus(show, message = "") {
-            const banner = document.getElementById('syncBanner');
-            const msgSpan = document.getElementById('syncMessage');
-            if (show) {
-                msgSpan.innerText = message;
-                banner.style.display = 'flex';
-            } else {
-                banner.style.display = 'none';
-            }
-        }
-
-        // 從雲端獲取最新歷史紀錄
-        function loadFromCloud() {
-            showSyncStatus(true, "☁️ 正在自 Google 雲端資料庫讀取紀錄...");
-            
-            fetch(CLOUD_API_URL)
-            .then(res => res.json())
-            .then(data => {
-                cidDatabase = data || {};
-                // 從網址解析參數
-                parseUrlParams();
-                showSyncStatus(false);
-            })
-            .catch(err => {
-                console.error("讀取失敗:", err);
-                showSyncStatus(true, "❌ 讀取雲端資料失敗，請檢查網路或 Apps Script 部署權限！");
-                setTimeout(() => showSyncStatus(false), 5000);
-            });
-        }
-
-        // 解析網址參數 (?data=...)
-        function parseUrlParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const rawDataParam = urlParams.get('data');
-            
-            if (rawDataParam) {
-                try {
-                    const decodedData = decodeURIComponent(rawDataParam);
-                    uploadedRawData = JSON.parse(decodedData);
-                    processUploadedData();
-                } catch (e) {
-                    console.error("解析網址 data 參數失敗", e);
-                    renderOnlyCloudData();
-                }
-            } else {
+    // 解析網址參數
+    function parseUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const rawDataParam = urlParams.get('data');
+        
+        if (rawDataParam) {
+            try {
+                const decodedData = decodeURIComponent(rawDataParam);
+                uploadedRawData = JSON.parse(decodedData);
+                processUploadedData();
+            } catch (e) {
                 renderOnlyCloudData();
             }
+        } else {
+            renderOnlyCloudData();
         }
+    }
 
-        // 處理外部傳入的資料並結合雲端狀態
-        function processUploadedData() {
-            const cids = new Set();
-            finalFilteredData = [];
+    function processUploadedData() {
+        const cids = new Set();
+        finalFilteredData = [];
 
-            uploadedRawData.forEach(item => {
-                if (item.CID) {
-                    cids.add(item.CID.toString().trim());
-                    
-                    let status = "開啟";
-                    if (cidDatabase[item.CID.toString().trim()] !== undefined) {
-                        status = cidDatabase[item.CID.toString().trim()];
-                    }
-                    
-                    finalFilteredData.push({
-                        ...item,
-                        CID: item.CID.toString().trim(),
-                        status: status
-                    });
+        uploadedRawData.forEach(item => {
+            if (item.CID) {
+                const cidStr = item.CID.toString().trim();
+                cids.add(cidStr);
+                
+                let status = "開啟";
+                if (cidDatabase[cidStr] !== undefined) {
+                    status = cidDatabase[cidStr];
                 }
-            });
-
-            renderCidButtons(Array.from(cids));
-            
-            if (cids.size > 0) {
-                const firstCid = Array.from(cids)[0];
-                selectCid(firstCid);
-            }
-        }
-
-        // 如果網址沒有帶參數，純粹渲染雲端現有的 CID 資料
-        function renderOnlyCloudData() {
-            const cids = Object.keys(cidDatabase);
-            finalFilteredData = [];
-            
-            cids.forEach(cid => {
+                
                 finalFilteredData.push({
-                    CID: cid,
-                    status: cidDatabase[cid],
-                    "名稱/代號": "雲端同步資料",
-                    "詳情": "無原始明細，僅顯示狀態"
+                    ...item,
+                    CID: cidStr,
+                    status: status
                 });
-            });
+            }
+        });
 
-            renderCidButtons(cids);
-            if (cids.length > 0) {
-                selectCid(cids[0]);
+        renderCidButtons(Array.from(cids));
+        if (cids.size > 0) {
+            selectCid(Array.from(cids)[0]);
+        }
+    }
+
+    function renderOnlyCloudData() {
+        const cids = Object.keys(cidDatabase);
+        finalFilteredData = [];
+        
+        cids.forEach(cid => {
+            finalFilteredData.push({
+                CID: cid,
+                status: cidDatabase[cid],
+                "名稱/代號": "雲端歷史紀錄",
+                "詳情": "無原始明細"
+            });
+        });
+
+        renderCidButtons(cids);
+        if (cids.length > 0) {
+            selectCid(cids[0]);
+        }
+    }
+
+    function renderCidButtons(cidList) {
+        const container = document.getElementById('btnContainer');
+        container.innerHTML = '';
+        
+        cidList.sort().forEach(cid => {
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.id = `btn-${cid}`;
+            btn.innerText = cid;
+            btn.onclick = () => selectCid(cid);
+            container.appendChild(btn);
+        });
+    }
+
+    function filterCIDs() {
+        const query = document.getElementById('search').value.toLowerCase();
+        const buttons = document.querySelectorAll('#btnContainer .btn');
+        buttons.forEach(btn => {
+            if (btn.innerText.toLowerCase().includes(query)) {
+                btn.style.display = 'inline-block';
             } else {
-                document.getElementById('cidContainer').innerHTML = '<div class="text-muted text-center w-100 py-3">目前雲端無歷史紀錄</div>';
+                btn.style.display = 'none';
             }
-        }
+        });
+    }
 
-        // 渲染左側 CID 按鈕
-        function renderCidButtons(cidList) {
-            const container = document.getElementById('cidContainer');
-            document.getElementById('cidCount').innerText = cidList.length;
-            
-            if (cidList.length === 0) {
-                container.innerHTML = '<div class="text-muted text-center w-100 py-3">沒有找到任何 CID</div>';
-                return;
-            }
+    function selectCid(cid) {
+        currentSelectedCid = cid;
+        document.querySelectorAll('#btnContainer .btn').forEach(b => b.classList.remove('active'));
+        
+        const activeBtn = document.getElementById(`btn-${cid}`);
+        if (activeBtn) activeBtn.classList.add('active');
 
-            container.innerHTML = '';
-            cidList.sort().forEach(cid => {
-                const btn = document.createElement('button');
-                btn.className = `btn cid-btn btn-sm text-truncate`;
-                btn.style.maxWidth = '100%';
-                btn.id = `btn-${cid}`;
-                btn.innerHTML = `<i class="fas fa-tag me-1 small"></i>${cid}`;
-                btn.onclick = () => selectCid(cid);
-                container.appendChild(btn);
+        const records = finalFilteredData.filter(item => item.CID === cid);
+        if (records.length === 0) return;
+
+        const sample = records[0];
+        const keys = Object.keys(sample).filter(k => k !== 'status');
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+        `;
+        keys.forEach(k => { html += `<th>${k}</th>`; });
+        html += `<th>狀態管理</th></tr></thead><tbody>`;
+
+        records.forEach(row => {
+            html += `<tr>`;
+            keys.forEach(k => {
+                html += `<td>${row[k] !== undefined ? row[k] : ''}</td>`;
             });
-        }
+            html += `
+                <td>
+                    <button class="status-btn ${row.status === '開啟' ? 'status-on' : 'status-off'}" onclick="toggleCidStatus('${cid}', '${row.status}')">
+                        ${row.status}
+                    </button>
+                </td>
+            </tr>`;
+        });
 
-        // 左側 CID 搜尋篩選
-        function filterCidButtons() {
-            const query = document.getElementById('cidSearch').value.toLowerCase();
-            const buttons = document.querySelectorAll('#cidContainer .cid-btn');
-            buttons.forEach(btn => {
-                const txt = btn.innerText.toLowerCase();
-                if (txt.includes(query)) {
-                    btn.style.setProperty('display', 'block', 'important');
-                } else {
-                    btn.style.setProperty('display', 'none', 'important');
-                }
-            });
-        }
+        html += `</tbody></table>`;
+        document.getElementById('tableContainer').innerHTML = html;
+    }
 
-        // 選擇某個 CID
-        function selectCid(cid) {
-            currentSelectedCid = cid;
-            
-            document.querySelectorAll('#cidContainer .cid-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.getElementById(`btn-${cid}`);
-            if (activeBtn) activeBtn.classList.add('active');
+    // 切換狀態並上傳雲端
+    function toggleCidStatus(cid, currentStatus) {
+        const newStatus = currentStatus === "開啟" ? "關閉" : "開啟";
+        showSyncStatus(`💾 正在同步 [${cid}] 狀態至雲端...`);
 
-            const records = finalFilteredData.filter(item => item.CID === cid);
-            document.getElementById('dataCount').innerText = `共 ${records.length} 筆資料`;
+        // 前端即時反應
+        finalFilteredData.forEach(item => {
+            if (item.CID === cid) item.status = newStatus;
+        });
+        cidDatabase[cid] = newStatus;
+        selectCid(cid);
 
-            if (records.length === 0) {
-                document.getElementById('tableContainer').innerHTML = '<div class="text-center py-5 text-muted">無資料</div>';
-                return;
-            }
+        // 發送至 Google Sheets
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cid: cid, status: newStatus })
+        })
+        .then(() => {
+            showSyncStatus("✅ 雲端同步完成");
+        })
+        .catch(err => {
+            console.error(err);
+            showSyncStatus("❌ 雲端同步失敗，請重新整理");
+        });
+    }
+</script>
 
-            // 動態抓取 key 建立表格
-            const sample = records[0];
-            const keys = Object.keys(sample).filter(k => k !== 'status');
-
-            let html = `
-                <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
-                    <div><strong>當前選取 CID:</strong> <span class="badge bg-primary fs-6">${cid}</span></div>
-                    <div>
-                        <strong class="me-2">狀態同步管理:</strong>
-                        <button class="btn btn-toggle-status ${sample.status === '開啟' ? 'btn-success' : 'btn-danger'}" onclick="toggleCidStatus('${cid}', '${sample.status}')">
-                            <i class="fas ${sample.status === '開啟' ? 'fa-check-circle' : 'fa-times-circle'} me-1"></i>當前為：${sample.status} (點擊切換)
-                        </button>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped align-middle bg-white mb-0">
-                        <thead class="table-dark">
-                            <tr>
-            `;
-            
-            keys.forEach(k => { html += `<th>${k}</th>`; });
-            html += `</tr></thead><tbody>`;
-
-            records.forEach(row => {
-                html += `<tr>`;
-                keys.forEach(k => {
-                    let val = row[k] !== undefined ? row[k] : '';
-                    if (k === 'CID') {
-                        html += `<td><span class="fw-bold">${val}</span></td>`;
-                    } else {
-                        html += `<td>${val}</td>`;
-                    }
-                });
-                html += `</tr>`;
-            });
-
-            html += `</tbody></table></div>`;
-            document.getElementById('tableContainer').innerHTML = html;
-        }
-
-        // 切換狀態並即時寫入 Google Sheets
-        function toggleCidStatus(cid, currentStatus) {
-            const newStatus = currentStatus === "開啟" ? "關閉" : "開啟";
-            
-            showSyncStatus(true, `💾 正在同步 [${cid}] 變更至雲端資料庫...`);
-
-            // 立即在前端更新狀態，優化使用者體驗
-            finalFilteredData.forEach(item => {
-                if (item.CID === cid) item.status = newStatus;
-            });
-            cidDatabase[cid] = newStatus;
-            selectCid(cid);
-
-            // POST 到 Google Apps Script
-            fetch(CLOUD_API_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cid: cid, status: newStatus })
-            })
-            .then(() => {
-                showSyncStatus(false);
-            })
-            .catch(err => {
-                console.error("同步失敗:", err);
-                showSyncStatus(true, "❌ 同步至雲端失敗，請重新整理網頁！");
-                setTimeout(() => showSyncStatus(false), 3000);
-            });
-        }
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
