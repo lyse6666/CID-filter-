@@ -198,7 +198,7 @@
 
 <script>
     // 綁定您在 Apps Script 部署得到的正確網址
-    const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIwAiT3H0rtj_tENU0iLaxTqjHD9Hrof/exec";
+    const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbwiGH4jtoY5qhe2__wOC9WBSy3QBOwne4laQIWaIT3H0rtj_tENU0iLaxTqjHD9Hrof/exec";
     
     let cloudDatabase = {};
 
@@ -212,7 +212,6 @@
         statusDiv.className = "status-text status-loading";
         statusDiv.innerText = "⏳ 正在自雲端資料庫讀取紀錄...";
 
-        // 修正核心：加入 redirect 模式處理 Google 的網址重定向
         fetch(CLOUD_API_URL, {
             method: "GET",
             redirect: "follow"
@@ -224,7 +223,7 @@
         .then(data => {
             cloudDatabase = data || {};
             statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 已與雲端同步"; // 同步成功後消除紅字，亮起綠燈
+            statusDiv.innerText = "🟢 已與雲端同步";
             updateCidDropdownAndList();
         })
         .catch(err => {
@@ -234,7 +233,7 @@
         });
     }
 
-    // 更新介面上的下拉選單和列表
+    // 更新介面上的下拉選單和列表（加上點擊查看明細功能）
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
@@ -253,16 +252,36 @@
         }
 
         cids.forEach(cid => {
-            // 下拉選單
+            // 1. 更新右側的下拉選單
             const opt = document.createElement('option');
             opt.value = cid;
             opt.text = cid;
             select.appendChild(opt);
 
-            // 顯示名單
+            // 2. 更新左側清單，並加入點擊彈出明細功能
             const item = document.createElement('div');
-            item.style.padding = "3px 0";
-            item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號)`;
+            item.style.padding = "6px 10px";
+            item.style.margin = "5px 0";
+            item.style.backgroundColor = "#f8f9fa";
+            item.style.borderRadius = "5px";
+            item.style.cursor = "pointer";
+            item.style.border = "1px solid #e9ecef";
+            item.style.transition = "0.2s";
+            item.style.fontSize = "13px";
+            item.title = "點擊查看詳細帳號名單";
+            
+            // 滑鼠移入變色效果
+            item.onmouseover = function() { this.style.backgroundColor = "#e9ecef"; };
+            item.onmouseout = function() { this.style.backgroundColor = "#f8f9fa"; };
+
+            item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
+            
+            // 點擊事件：直接彈窗秀出該 CID 底下的所有人
+            item.onclick = function() {
+                const accountDetail = cloudDatabase[cid].join('\n');
+                alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${accountDetail}`);
+            };
+            
             listContainer.appendChild(item);
         });
     }
@@ -285,12 +304,11 @@
 
         fetch(CLOUD_API_URL, {
             method: 'POST',
-            mode: 'no-cors', // 允許跨域寫入
+            mode: 'no-cors', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
         })
         .then(() => {
-            // 前端立即反應更新
             if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
             cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
             
@@ -301,7 +319,6 @@
             statusDiv.innerText = "🟢 同步成功！";
             updateCidDropdownAndList();
             
-            // 1.5 秒後重新從雲端抓取確認
             setTimeout(loadFromCloud, 1500);
         })
         .catch(err => {
