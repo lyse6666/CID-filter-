@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>好好篩 - 跨瀏覽器、跨裝置雲端資料庫同步系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -20,6 +21,7 @@
             color: #007bff;
             margin-bottom: 5px;
             font-size: 28px;
+            font-weight: bold;
         }
         .header p {
             color: #666;
@@ -105,10 +107,12 @@
             width: auto;
             font-size: 12px;
             margin-top: 15px;
+            border-radius: 4px;
         }
         .btn-danger:hover { background-color: #fff5f5; }
         .status-text {
-            font-size: 13px;
+            font-size: 14px;
+            font-weight: bold;
             margin-top: 10px;
         }
         .status-success { color: #28a745; }
@@ -117,12 +121,23 @@
         .list-container {
             margin-top: 15px;
             font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
         }
         .result-placeholder {
             text-align: center;
             color: #888;
             padding: 40px 20px;
             font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #eee;
+            padding: 8px;
+            text-align: left;
+            font-size: 13px;
+        }
+        th {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
@@ -148,8 +163,8 @@
             <button class="btn btn-blue" onclick="saveToCloud()">儲存 / 追加並同步到雲端</button>
             
             <div style="border-top: 1px dashed #ddd; margin-top: 20px; padding-top: 15px;">
-                <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">目前已儲存的 CID 名單 (資料已與雲端同步)：</label>
-                <div id="syncStatus" class="status-text status-loading">正在同步雲端選單...</div>
+                <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">目前已儲存的 CID 名單 (資料已與雲端同步) ：</label>
+                <div id="syncStatus" class="status-text status-loading">⏳ 正在同步雲端選單...</div>
                 <div id="cidListContainer" class="list-container"></div>
                 <button class="btn btn-danger" onclick="clearAllRecords()">清除所有紀錄名單</button>
             </div>
@@ -169,7 +184,7 @@
                 <label>上傳待篩選的原始 Excel 檔案：</label>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
             </div>
-            <button class="btn btn-green">開始自動比對篩選</button>
+            <button class="btn btn-green" onclick="startFiltering()">開始自動比對篩選</button>
         </div>
 
         <div class="card">
@@ -191,26 +206,35 @@
         loadFromCloud();
     };
 
+    // 讀取雲端資料
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
         statusDiv.innerText = "⏳ 正在自雲端資料庫讀取紀錄...";
 
-        fetch(CLOUD_API_URL)
-        .then(res => res.json())
+        // 修正核心：加入 redirect 模式處理 Google 的網址重定向
+        fetch(CLOUD_API_URL, {
+            method: "GET",
+            redirect: "follow"
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("網路連線回應錯誤");
+            return res.json();
+        })
         .then(data => {
             cloudDatabase = data || {};
             statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 已與雲端同步";
+            statusDiv.innerText = "🟢 已與雲端同步"; // 同步成功後消除紅字，亮起綠燈
             updateCidDropdownAndList();
         })
         .catch(err => {
-            console.error(err);
+            console.error("雲端讀取失敗細節:", err);
             statusDiv.className = "status-text status-error";
             statusDiv.innerText = "❌ 未正確設定雲端網址";
         });
     }
 
+    // 更新介面上的下拉選單和列表
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
@@ -229,20 +253,21 @@
         }
 
         cids.forEach(cid => {
-            // 更新下拉選單
+            // 下拉選單
             const opt = document.createElement('option');
             opt.value = cid;
             opt.text = cid;
             select.appendChild(opt);
 
-            // 更新下方名單顯示
+            // 顯示名單
             const item = document.createElement('div');
-            item.style.marginHeight = "5px";
+            item.style.padding = "3px 0";
             item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號)`;
             listContainer.appendChild(item);
         });
     }
 
+    // 儲存資料到雲端
     function saveToCloud() {
         const cidName = document.getElementById('cidName').value.trim();
         const accountListText = document.getElementById('accountList').value.trim();
@@ -260,12 +285,12 @@
 
         fetch(CLOUD_API_URL, {
             method: 'POST',
-            mode: 'no-cors',
+            mode: 'no-cors', // 允許跨域寫入
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
         })
         .then(() => {
-            // 由於 no-cors 模式無法獲取回傳值，我們直接在前端模擬追加並於 2 秒後重新整理重新撈取
+            // 前端立即反應更新
             if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
             cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
             
@@ -275,6 +300,8 @@
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 同步成功！";
             updateCidDropdownAndList();
+            
+            // 1.5 秒後重新從雲端抓取確認
             setTimeout(loadFromCloud, 1500);
         })
         .catch(err => {
@@ -284,6 +311,7 @@
         });
     }
 
+    // 清除雲端所有紀錄
     function clearAllRecords() {
         if (!confirm("確定要刪除雲端試算表上的所有歷史紀錄嗎？此動作無法復原。")) return;
         
@@ -309,6 +337,83 @@
             statusDiv.className = "status-text status-error";
             statusDiv.innerText = "❌ 操作失敗";
         });
+    }
+
+    // 執行自動比對篩選功能
+    function startFiltering() {
+        const selectedCid = document.getElementById('cidSelect').value;
+        const fileInput = document.getElementById('excelFile');
+        const resultContainer = document.getElementById('resultContainer');
+
+        if (!selectedCid || selectedCid.startsWith('--')) {
+            alert('請選擇有效的 CID！');
+            return;
+        }
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('請選擇要上傳的 Excel 檔案！');
+            return;
+        }
+
+        const targetAccounts = cloudDatabase[selectedCid] || [];
+        if (targetAccounts.length === 0) {
+            alert('該 CID 在雲端中無對應的帳號名單！');
+            return;
+        }
+
+        resultContainer.innerHTML = "⏳ 正在讀取並自動比對中，請稍候...";
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                // 篩選邏輯：檢查欄位中是否包含與雲端相符的帳號名稱
+                const matchedRows = jsonData.filter(row => {
+                    return Object.values(row).some(val => {
+                        if (!val) return false;
+                        const strVal = val.toString().trim();
+                        return targetAccounts.includes(strVal);
+                    });
+                });
+
+                if (matchedRows.length === 0) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到任何相符的帳號資料。</div>`;
+                    return;
+                }
+
+                // 渲染成表格顯示出來
+                let tableHtml = `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 比對完成，共篩選出 ${matchedRows.length} 筆相符資料：</div>`;
+                tableHtml += `<div style="overflow-x: auto;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
+                
+                const headers = Object.keys(matchedRows[0]);
+                headers.forEach(h => { tableHtml += `<th>${h}</th>`; });
+                tableHtml += `</tr></thead><tbody>`;
+
+                matchedRows.forEach(row => {
+                    tableHtml += `<tr>`;
+                    headers.forEach(h => {
+                        tableHtml += `<td>${row[h] !== undefined ? row[h] : ''}</td>`;
+                    });
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table></div>`;
+                
+                resultContainer.classList.remove('result-placeholder');
+                resultContainer.innerHTML = tableHtml;
+
+            } catch (err) {
+                console.error(err);
+                resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取 Excel 失敗，請確認檔案格式是否正確。</div>`;
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
     }
 </script>
 
