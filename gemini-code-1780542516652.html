@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>好好篩 - CID 帳號資料自動篩選與整合系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0071e3;
+            --primary-hover: #0077ed;
+            --success-color: #34c759;
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-color: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: #d2d2d7;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+            color: var(--primary-color);
+        }
+
+        header p {
+            color: var(--text-secondary);
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"], select, input[type="file"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #86868b;
+            border-radius: 6px;
+            font-size: 15px;
+            box-sizing: border-box;
+            background-color: #fbfbfd;
+        }
+
+        textarea {
+            height: 160px;
+            resize: vertical;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background-color: #ffffff;
+        }
+
+        .file-input-wrapper {
+            background: #f5f5f7;
+            padding: 15px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: #ffffff;
+            border: none;
+            padding: 10px 16px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button.secondary {
+            background-color: #e8e8ed;
+            color: var(--text-color);
+        }
+
+        button.secondary:hover {
+            background-color: #d2d2d7;
+        }
+
+        button.success {
+            background-color: var(--success-color);
+        }
+        button.success:hover {
+            background-color: #30b651;
+        }
+
+        /* 可點開的風琴式選單設計 */
+        .cid-item {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            background: #fbfbfd;
+        }
+
+        .cid-header {
+            background: #e3f2fd;
+            color: #0b69a3;
+            padding: 12px 16px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .cid-header:hover {
+            background: #d0e7ff;
+        }
+
+        .cid-header .arrow {
+            font-size: 12px;
+            transition: transform 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .cid-content {
+            padding: 12px 16px;
+            background: #ffffff;
+            border-top: 1px solid var(--border-color);
+            display: none; /* 預設收合 */
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .cid-content ol {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .cid-content li {
+            margin-bottom: 8px;
+        }
+        
+        .account-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 0;
+        }
+
+        .delete-account-btn {
+            background: none;
+            border: none;
+            color: #86868b;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 2px 6px;
+            width: auto;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .delete-account-btn:hover {
+            color: #d32f2f;
+            background: #ffebee;
+        }
+
+        .delete-single-btn {
+            background: none;
+            border: none;
+            color: #d32f2f;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 4px 8px;
+            width: auto;
+            border-radius: 4px;
+            border: 1px solid #ffcdd2;
+        }
+        .delete-single-btn:hover {
+            background: #ffebee;
+        }
+
+        .excel-status {
+            font-size: 13px;
+            color: var(--success-color);
+            margin-top: 4px;
+            display: none;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background-color: #f5f5f7;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .db-status-section {
+            margin-top: 20px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 15px;
+        }
+
+        .backup-zone {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .backup-zone button {
+            font-size: 12px;
+            padding: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>好好篩</h1>
+        <p>CID 帳號資料自動篩選與整合系統</p>
+    </header>
+
+    <div class="grid">
+        <div>
+            <div class="card">
+                <h2> 儲存 CID 名單</h2>
+                <div class="form-group">
+                    <label for="newCidName">CID 名稱：</label>
+                    <input type="text" id="newCidName" placeholder="請輸入 CID 識別名稱（如：BT0052）">
+                </div>
+                <div class="form-group">
+                    <label for="newAccountList">該 CID 底下的 Account Name 名單（每行一個）：</label>
+                    <textarea id="newAccountList" placeholder="請輸入或貼上此 CID 包含的所有帳號名稱..."></textarea>
+                </div>
+                <button type="button" style="font-weight: bold; padding: 12px;" onclick="saveCidToDatabase()">儲存 / 新增至此 CID 名單</button>
+                
+                <div class="db-status-section">
+                    <label style="font-weight: 600; margin-bottom: 10px;">目前已儲存的 CID 名單（點擊可展開自由刪減）：</label>
+                    
+                    <div id="storedCidBadges" style="min-height: 50px;">
+                        <span style="color:var(--text-secondary); font-size:13px;">暫無紀錄</span>
+                    </div>
+                    
+                    <div class="backup-zone">
+                        <button type="button" class="secondary" onclick="exportDatabaseFile()">匯出名單備份檔</button>
+                        <button type="button" class="secondary" onclick="document.getElementById('importFile').click()">匯入名單備份檔</button>
+                        <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importDatabaseFile(this)">
+                    </div>
+                    <button class="secondary" style="margin-top: 15px; font-size: 12px; padding: 4px 10px; width: auto; color: #d32f2f; background: none; border: 1px solid #d2d2d7;" onclick="clearDatabase()">清除所有紀錄名單</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <h2> 選擇 CID 與上傳 Excel</h2>
+                <div class="form-group">
+                    <label for="selectCid">請選擇本次要篩選的 CID：</label>
+                    <select id="selectCid" onchange="onCidSelectionChange()">
+                        <option value="">-- 請先在左側建立名單 --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>上傳待篩選的原始 Excel 檔案：</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="handleExcelUpload(this)">
+                        <div class="excel-status" id="uploadStatus">✓ 檔案上傳解析成功！</div>
+                    </div>
+                </div>
+                <button class="success" style="font-size: 16px; font-weight: bold; padding: 12px;" onclick="processFiltering()">開始自動比對篩選</button>
+            </div>
+
+            <div class="card">
+                <h2> 篩選彙整結果</h2>
+                <div id="resultContainer" style="color: var(--text-secondary); text-align: center; padding: 30px 0;">
+                    請選擇 CID 並上傳 Excel 檔案後，點擊「開始自動比對篩選」。
+                </div>
+                
+                <div id="exportBtnContainer" style="display: none; margin-top: 16px;">
+                    <button class="success" style="font-size: 16px; font-weight: bold; padding: 14px;" onclick="downloadIntegratedExcel()"> 點此下載彙整後的 Excel 檔案</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cidDatabase = {};
+    let uploadedRawData = []; 
+    let finalFilteredData = []; 
+    let currentSelectedCid = "";
+    let cidToggleStatus = {};
+
+    window.onload = function() {
+        loadFromLocalStorage();
+    };
+
+    function loadFromLocalStorage() {
+        try {
+            const savedData = localStorage.getItem('cid_database_v3');
+            if (savedData) {
+                cidDatabase = JSON.parse(savedData);
+            } else {
+                cidDatabase = {};
+            }
+        } catch (e) {
+            console.error(e);
+            cidDatabase = {};
+        }
+        updateCidUI();
+    }
+
+    function saveToLocalStorage() {
+        try {
+            localStorage.setItem('cid_database_v3', JSON.stringify(cidDatabase));
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    // 核心邏輯修改：支援同步追加，不覆蓋舊有資料
+    function saveCidToDatabase() {
+        const cidName = document.getElementById('newCidName').value.trim();
+        const accountText = document.getElementById('newAccountList').value;
+
+        if (!cidName) {
+            alert('請輸入 CID 名稱！');
+            return;
+        }
+
+        // 解析本次輸入的新帳號
+        const newAccounts = accountText.split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+
+        if (newAccounts.length === 0) {
+            alert('請輸入至少一個 Account Name！');
+            return;
+        }
+
+        // 判斷該 CID 是否已經存在
+        if (cidDatabase[cidName]) {
+            // 已存在：將舊名單與新名單合併
+            const combinedList = cidDatabase[cidName].concat(newAccounts);
+            
+            // 進行自動去重複 (利用 Set 特性)
+            cidDatabase[cidName] = Array.from(new Set(combinedList));
+            
+            alert(`已成功將新帳號同步追加至現有的『${cidName}』名單中！`);
+        } else {
+            // 不存在：直接建立新名單
+            cidDatabase[cidName] = newAccounts;
+            alert(`新名單『${cidName}』已建立成功！`);
+        }
+        
+        saveToLocalStorage();
+        
+        // 自動清空輸入框，方便下一次操作
+        document.getElementById('newCidName').value = '';
+        document.getElementById('newAccountList').value = '';
+        
+        // 讓該更新的項目預設在列表中自動點開，方便使用者確認追加結果
+        cidToggleStatus[cidName] = true;
+        
+        updateCidUI();
+    }
+
+    function updateCidUI() {
+        const badgesContainer = document.getElementById('storedCidBadges');
+        const selectElement = document.getElementById('selectCid');
+        
+        badgesContainer.innerHTML = '';
+        selectElement.innerHTML = '<option value="">-- 請選擇一個 CID --</option>';
+
+        const keys = Object.keys(cidDatabase);
+        if (keys.length === 0) {
+            badgesContainer.innerHTML = '<span style="color:var(--text-secondary); font-size:13px;">暫無紀錄，請在上方新增名單</span>';
+            return;
+        }
+
+        keys.forEach(key => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'cid-item';
+
+            if (cidToggleStatus[key] === undefined) {
+                cidToggleStatus[key] = false;
+            }
+
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'cid-header';
+            headerDiv.innerHTML = `
+                <span>📂 <b>${key}</b> <span style="font-size:12px; font-weight:normal; color:var(--text-secondary);">(${cidDatabase[key].length} 個帳號)</span></span>
+                <span class="arrow">${cidToggleStatus[key] ? '▲ 點擊收合' : '▼ 點擊展開'}</span>
+            `;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'cid-content';
+            contentDiv.style.display = cidToggleStatus[key] ? 'block' : 'none';
+            
+            const ol = document.createElement('ol');
+            cidDatabase[key].forEach((acc, index) => {
+                const li = document.createElement('li');
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'account-row';
+                rowDiv.innerHTML = `
+                    <span>${acc}</span>
+                    <button type="button" class="delete-account-btn" onclick="deleteSingleAccount('${key}', ${index})" title="刪除此帳號">🗑️</button>
+                `;
+                li.appendChild(rowDiv);
+                ol.appendChild(li);
+            });
+            contentDiv.appendChild(ol);
+
+            const delActionDiv = document.createElement('div');
+            delActionDiv.style.textAlign = 'right';
+            delActionDiv.style.marginTop = '14px';
+            delActionDiv.innerHTML = `<button type="button" class="delete-single-btn" onclick="deleteSingleCid('${key}', event)">❌ 刪除整個 CID 名單</button>`;
+            contentDiv.appendChild(delActionDiv);
+
+            headerDiv.onclick = function() {
+                cidToggleStatus[key] = !cidToggleStatus[key];
+                const isVisible = cidToggleStatus[key];
+                contentDiv.style.display = isVisible ? 'block' : 'none';
+                headerDiv.querySelector('.arrow').textContent = isVisible ? '▲ 點擊收合' : '▼ 點擊展開';
+            };
+
+            itemDiv.appendChild(headerDiv);
+            itemDiv.appendChild(contentDiv);
+            badgesContainer.appendChild(itemDiv);
+
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = key;
+            selectElement.appendChild(option);
+        });
+
+        if (currentSelectedCid && cidDatabase[currentSelectedCid]) {
+            selectElement.value = currentSelectedCid;
+        }
+    }
+
+    function deleteSingleAccount(cidKey, accountIndex) {
+        const accountName = cidDatabase[cidKey][accountIndex];
+        if (confirm(`確定要將帳號『${accountName}』自 ${cidKey} 名單中移除嗎？`)) {
+            cidDatabase[cidKey].splice(accountIndex, 1);
+            if (cidDatabase[cidKey].length === 0) {
+                delete cidDatabase[cidKey];
+                delete cidToggleStatus[cidKey];
+                if (currentSelectedCid === cidKey) currentSelectedCid = "";
+            }
+            saveToLocalStorage();
+            updateCidUI();
+        }
+    }
+
+    function deleteSingleCid(key, event) {
+        event.stopPropagation();
+        if (confirm(`確定要刪除整個『${key}』的名單與底下所有帳號嗎？`)) {
+            delete cidDatabase[key];
+            delete cidToggleStatus[key];
+            saveToLocalStorage();
+            if (currentSelectedCid === key) currentSelectedCid = "";
+            updateCidUI();
+        }
+    }
+
+    function onCidSelectionChange() {
+        currentSelectedCid = document.getElementById('selectCid').value;
+    }
+
+    function exportDatabaseFile() {
+        if (Object.keys(cidDatabase).length === 0) {
+            alert('目前沒有任何名單可以匯出！');
+            return;
+        }
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cidDatabase, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `好好篩_CID名單備份_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    function importDatabaseFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (typeof importedData === 'object' && importedData !== null) {
+                    // 匯入時也做智慧合併
+                    for (let importedCid in importedData) {
+                        if (cidDatabase[importedCid]) {
+                            cidDatabase[importedCid] = Array.from(new Set(cidDatabase[importedCid].concat(importedData[importedCid])));
+                        } else {
+                            cidDatabase[importedCid] = importedData[importedCid];
+                        }
+                    }
+                    saveToLocalStorage();
+                    updateCidUI();
+                    alert('✓ 名單備份檔匯入成功！已與現有名單智慧整合。');
+                } else {
+                    alert('檔案格式不正確！');
+                }
+            } catch(err) {
+                alert('解析檔案失敗。');
+            }
+        };
+        reader.readAsText(file);
+        input.value = '';
+    }
+
+    function handleExcelUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            uploadedRawData = XLSX.utils.sheet_to_json(worksheet);
+            
+            if(uploadedRawData.length > 0) {
+                document.getElementById('uploadStatus').style.display = 'block';
+                document.getElementById('uploadStatus').textContent = `✓ 成功讀取 Excel 共 ${uploadedRawData.length} 筆原始資料。`;
+            } else {
+                alert('Excel 檔案內沒有找到有效資料！');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function processFiltering() {
+        const selectedCid = document.getElementById('selectCid').value;
+        if (!selectedCid) {
+            alert('請先在右側選擇一個要篩選的比對 CID！');
+            return;
+        }
+        if (uploadedRawData.length === 0) {
+            alert('請先上傳待篩選的原始 Excel 檔案！');
+            return;
+        }
+
+        const targetAccounts = cidDatabase[selectedCid].map(name => name.toLowerCase().trim());
+        
+        finalFilteredData = uploadedRawData.filter(row => {
+            const accountKey = Object.keys(row).find(key => 
+                key.toLowerCase().replace(/\s/g, '') === 'accountname' || 
+                key.toLowerCase().replace(/\s/g, '') === 'account' ||
+                key.includes('名稱') || key.includes('客戶') || key.includes('帳號')
+            );
+
+            if (!accountKey) return false;
+            const cellValue = String(row[accountKey]).toLowerCase().trim();
+            return targetAccounts.some(target => cellValue.includes(target) || target.includes(cellValue));
+        });
+
+        renderFilterResult(selectedCid, targetAccounts.length, finalFilteredData.length);
+    }
+
+    function renderFilterResult(cidName, totalTargetCount, matchCount) {
+        const container = document.getElementById('resultContainer');
+        container.innerHTML = '';
+        container.style.textAlign = 'left';
+
+        let html = `
+            <div class="info-box" style="background:#e8f5e9; border-color:#c8e6c9;">
+                <b style="color:#2e7d32; font-size:16px;">✓ 篩選比對完成</b>
+                <p style="margin:6px 0 0 0;">
+                    目標 CID：<b>${cidName}</b>（內含 ${totalTargetCount} 個帳號）<br>
+                    篩選出 <b style="color:#d32f2f; font-size:16px;">${matchCount}</b> 筆符合的明細資料！
+                </p>
+            </div>
+        `;
+        container.innerHTML = html;
+        document.getElementById('exportBtnContainer').style.display = 'block';
+    }
+
+    function downloadIntegratedExcel() {
+        if (finalFilteredData.length === 0) {
+            if(!confirm('目前篩選出的資料為 0 筆，確定要下載空白資料表嗎？')) return;
+        }
+        const selectedCid = document.getElementById('selectCid').value;
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(finalFilteredData);
+        XLSX.utils.book_append_sheet(wb, ws, `${selectedCid}_篩選結果`);
+        XLSX.writeFile(wb, `${selectedCid}_資料彙整_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function clearDatabase() {
+        if (confirm('確定要清除左側所有 CID 名單嗎？(清除後無法復原)')) {
+            cidDatabase = {};
+            cidToggleStatus = {};
+            localStorage.removeItem('cid_database_v3');
+            updateCidUI();
+            document.getElementById('resultContainer').innerHTML = '請選擇 CID 並上傳 Excel 檔案後，點擊「開始自動比對篩選」。';
+            document.getElementById('exportBtnContainer').style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
