@@ -363,14 +363,9 @@
     let currentSelectedCid = "";
     let cidToggleStatus = {};
 
-    window.onload = function() {
-        if(CLOUD_API_URL === "https://script.google.com/macros/s/AKfycbz85Y01z_lNffbynefNkIx_Poiht_eP63PY9L3jPQXYv6KykEEH9TTpTxCLEmb3OKM8/exec") {
-            alert("請先將程式碼中的 CLOUD_API_URL 替換成您在 Google Sheets 部署得到的網頁應用程式網址！");
-            document.getElementById('storedCidBadges').innerHTML = '<span style="color:red;">未正確設定雲端網址</span>';
-            return;
-        }
-        loadFromCloud(); // 啟動時一律從雲端撈取最新資料
-    };
+   window.onload = function() {
+    loadFromCloud(); // 啟動時一律從雲端撈取最新資料
+};
 
     // 核心功能：從雲端獲取最新歷史紀錄
     function loadFromCloud() {
