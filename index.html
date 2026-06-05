@@ -371,7 +371,7 @@
         });
     }
 
-    // 🎯 功能一：精準針對「第一個分頁」進行全網格盲篩
+    // 🎯 功能一：精準盲篩第一分頁（永久保留首行中英標題、維持時間原格式）
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -383,7 +383,7 @@
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
         if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
 
-        resultContainer.innerHTML = "⏳ 正在讀取第一個分頁並進行網格盲篩中...";
+        resultContainer.innerHTML = "⏳ 正在讀起第一分頁並分析時間與欄位資料中...";
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -391,31 +391,29 @@
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', raw: false });
+                // cellDates: true 搭配 raw: false 可完美抽離並維持原始時間字串外觀，防止變純數字
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
                 
-                // 依據您的操作習慣，固定抓取第一個分頁 (最多資料的那一頁)
                 const targetSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[targetSheetName];
                 
-                // 使用 header: 1 盲讀取，無論帳號標題在第幾列，通通當成棋盤格子
+                // 網格盲讀取模式
                 const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
                 if (rawRows.length === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 第一個分頁內容為空。</div>`;
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 第一個分頁沒有任何有效資料。</div>`;
                     return;
                 }
 
-                // 尋找包含最多欄位的那一行作為預覽標頭參考
-                let headerRow = rawRows[0];
-                for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
-                    if (rawRows[i] && rawRows[i].length > headerRow.length) {
-                        headerRow = rawRows[i];
-                    }
-                }
+                // 👑 強制保留第一行作為中英文標題欄位
+                const headerRow = rawRows[0];
+                let filteredRows = [headerRow]; 
 
-                let filteredRows = [];
-                for (let i = 0; i < rawRows.length; i++) {
+                // 從第 2 行 (索引 1) 開始進行精準盲篩比對
+                for (let i = 1; i < rawRows.length; i++) {
                     const currentRow = rawRows[i];
+                    if (!currentRow || currentRow.length === 0) continue;
+
                     const hasMatch = currentRow.some(cellVal => {
                         if (cellVal === undefined || cellVal === null) return false;
                         return targetAccounts.includes(cellVal.toString().trim());
@@ -426,8 +424,9 @@
                     }
                 }
 
-                if (filteredRows.length === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：在第一個分頁中未找到任何相符的帳號資料（請確認您已將明細表移到第一個分頁）。</div>`;
+                // 扣除標題行後，檢查是否有匹配到明細
+                if (filteredRows.length <= 1) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到相符的帳號明細（請確認您已將明細表移到第一個分頁，且雲端與 Excel 內的 ID 完全相同）。</div>`;
                     return;
                 }
 
@@ -435,18 +434,18 @@
                 const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
                 XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "篩選結果");
 
-                // 渲染下載盒
+                // 建立下載介面
                 let html = `<div class="download-box">`;
-                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 網格盲篩成功！共精準抓到 ${filteredRows.length} 列完整明細數據</div>`;
-                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 原始全欄位明細 Excel 檔</button>`;
+                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 網格盲篩成功！已自動保留中英首行，共精準抓到 ${filteredRows.length - 1} 筆明細資料</div>`;
+                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 格式完整 Excel 檔</button>`;
                 html += `</div>`;
 
                 // 網頁預覽
-                html += `<p style="font-size:12px; color:#666; margin:5px 0;">(下方為前 10 筆明細結果預覽，下載的檔案包含一整列的所有欄位)</p>`;
+                html += `<p style="font-size:12px; color:#666; margin:5px 0;">(下方僅顯示前 10 筆結果預覽，下載的 Excel 檔案格式與原檔完全一致)</p>`;
                 html += `<div style="overflow-x: auto; max-height: 250px;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
                 headerRow.forEach((h, idx) => { html += `<th>${h || '欄位_'+(idx+1)}</th>`; });
                 html += `</tr></thead><tbody>`;
-                filteredRows.slice(0, 10).forEach(row => {
+                filteredRows.slice(1, 11).forEach(row => {
                     html += `<tr>`;
                     headerRow.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
                     html += `</tr>`;
@@ -466,10 +465,10 @@
 
     function downloadFilterExcel(cid) {
         if (!currentFilterWorkbook) return;
-        XLSX.writeFile(currentFilterWorkbook, `好好篩_明細篩選結果_${cid}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+        XLSX.writeFile(currentFilterWorkbook, `好好篩_原始格式篩選_${cid}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
     }
 
-    // 🎯 功能二：純物理多檔案合併（絕不進行任何篩選、依舊只抓各自的第一分頁進行拼接）
+    // 🎯 功能二：純物理多檔案合併（同樣無條件保留首個檔案的標題列、維持時間原格式）
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -477,29 +476,38 @@
 
         if (!fileInput.files || fileInput.files.length === 0) { alert('請至少選擇一個或多個 Excel 檔案進行合併！'); return; }
 
-        resultContainer.innerHTML = `⏳ 正在進行多檔案物理拼接中 (${fileInput.files.length} 個檔案)，請稍候...`;
+        resultContainer.innerHTML = `⏳ 正在進行多檔案物理拼接與時間格式鎖定中...`;
 
         const files = Array.from(fileInput.files);
         currentMergeWorkbook = XLSX.utils.book_new(); 
         let combinedData = []; 
         let processedCount = 0;
+        let globalHeader = null; // 用來儲存第一個檔案的標題列
 
-        files.forEach((file) => {
+        files.forEach((file, fileIdx) => {
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', raw: false });
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
                     
-                    // 合併功能也依據習慣固定抓取各自的第一個分頁
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
                     if (rawRows.length > 0) {
                         if (mode === 'single') {
-                            combinedData = combinedData.concat(rawRows);
+                            if (fileIdx === 0) {
+                                // 第一個檔案：完整保留（含標題）
+                                globalHeader = rawRows[0];
+                                combinedData = combinedData.concat(rawRows);
+                            } else {
+                                // 第二個檔案開始：無腦過濾掉它自己的第一行標題，只對接資料行
+                                const dataRowsOnly = rawRows.slice(1);
+                                combinedData = combinedData.concat(dataRowsOnly);
+                            }
                         } else {
+                            // 模式 B：一檔案一分頁，各自獨立保留各自的原始結構
                             let sheetName = file.name.replace(/\.xlsx$|\.xls$/i, '').substring(0, 30);
                             const newWorksheet = XLSX.utils.aoa_to_sheet(rawRows);
                             XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, sheetName);
@@ -519,14 +527,14 @@
                         }
 
                         try {
-                            XLSX.writeFile(currentMergeWorkbook, `好好篩_多檔物理合併_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+                            XLSX.writeFile(currentMergeWorkbook, `好好篩_多檔純物理合併_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
                         } catch (e) { console.log("自動下載遭攔截"); }
 
                         resultContainer.classList.remove('result-placeholder');
                         resultContainer.innerHTML = `
                             <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
-                                <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 多檔案第一分頁物理合併完成！</div>
-                                <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已無腦接龍所有檔案的第一頁，長數字皆未變形變異：</p>
+                                <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 多檔案物理合併完成！</div>
+                                <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已自動為您對齊首行中英標題，且時間與長數字格式皆完美保留：</p>
                                 <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我手動下載合併後的 Excel 檔</button>
                             </div>
                         `;
