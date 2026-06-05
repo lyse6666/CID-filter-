@@ -88,6 +88,10 @@
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
+            margin-bottom: 8px;
+        }
+        .btn:last-child {
+            margin-bottom: 0;
         }
         .btn-blue {
             background-color: #007bff;
@@ -99,6 +103,16 @@
             color: white;
         }
         .btn-green:hover { background-color: #218838; }
+        .btn-purple {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .btn-purple:hover { background-color: #59359a; }
+        .btn-orange {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .btn-orange:hover { background-color: #da6606; }
         .btn-danger {
             background-color: #fff;
             color: #dc3545;
@@ -129,6 +143,19 @@
             color: #888;
             padding: 40px 20px;
             font-size: 14px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .radio-group label {
+            font-weight: normal !important;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
         }
         th, td {
             border: 1px solid #eee;
@@ -188,16 +215,32 @@
         </div>
 
         <div class="card">
-            <h3>篩選彙整結果</h3>
+            <h3>🗂️ Excel 多檔案合併匯出工具</h3>
+            <div class="form-group">
+                <label>上傳多個 Excel 檔案 (可多選)：</label>
+                <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple>
+            </div>
+            <div class="form-group">
+                <label>匯出模式選擇：</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="mergeMode" value="single" checked> 模式 A：合併至單一分頁</label>
+                    <label><input type="radio" name="mergeMode" value="multi"> 模式 B：一檔案一分頁</label>
+                </div>
+            </div>
+            <button class="btn btn-purple" onclick="startMergeAndExport()">建立合併並下載 Excel 檔</button>
+        </div>
+
+        <div class="card">
+            <h3>執行結果狀態</h3>
             <div id="resultContainer" class="result-placeholder">
-                請選擇 CID 並上傳 Excel 檔案後，點擊「開始自動比對篩選」。
+                請選擇功能並上傳對應檔案進行操作。
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 修正：已移除多餘的 /exec 尾巴，對接正確的 Google 雲端 API 網址
+    // 完美的後台通用門牌網址，包含 /exec
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
     
     let cloudDatabase = {};
@@ -206,7 +249,7 @@
         loadFromCloud();
     };
 
-    // 讀取雲端資料
+    // 讀取雲端資料（維持原功能）
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
@@ -233,7 +276,7 @@
         });
     }
 
-    // 更新介面上的下拉選單和列表
+    // 更新介面功能（維持原功能）
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
@@ -252,13 +295,11 @@
         }
 
         cids.forEach(cid => {
-            // 1. 更新右側的下拉選單
             const opt = document.createElement('option');
             opt.value = cid;
             opt.text = cid;
             select.appendChild(opt);
 
-            // 2. 更新左側清單
             const item = document.createElement('div');
             item.style.padding = "6px 10px";
             item.style.margin = "5px 0";
@@ -272,10 +313,8 @@
             
             item.onmouseover = function() { this.style.backgroundColor = "#e9ecef"; };
             item.onmouseout = function() { this.style.backgroundColor = "#f8f9fa"; };
-
             item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
             
-            // 點擊事件：彈窗秀出帳號清單
             item.onclick = function() {
                 const accountDetail = cloudDatabase[cid].join('\n');
                 alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${accountDetail}`);
@@ -285,7 +324,7 @@
         });
     }
 
-    // 儲存資料到雲端
+    // 儲存至雲端功能（維持原功能）
     function saveToCloud() {
         const cidName = document.getElementById('cidName').value.trim();
         const accountListText = document.getElementById('accountList').value.trim();
@@ -310,14 +349,11 @@
         .then(() => {
             if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
             cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
-            
             document.getElementById('cidName').value = '';
             document.getElementById('accountList').value = '';
-            
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 同步成功！";
             updateCidDropdownAndList();
-            
             setTimeout(loadFromCloud, 1500);
         })
         .catch(err => {
@@ -327,7 +363,7 @@
         });
     }
 
-    // 清除雲端所有紀錄
+    // 清除雲端功能（維持原功能）
     function clearAllRecords() {
         if (!confirm("確定要刪除雲端試算表上的所有歷史紀錄嗎？此動作無法復原。")) return;
         
@@ -355,7 +391,7 @@
         });
     }
 
-    // 執行自動比對篩選功能
+    // 原功能：執行自動比對篩選功能
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -428,6 +464,78 @@
         };
 
         reader.readAsArrayBuffer(file);
+    }
+
+    // 🆕 全新核心功能：多檔案合併與自動匯出邏輯
+    function startMergeAndExport() {
+        const fileInput = document.getElementById('mergeFiles');
+        const resultContainer = document.getElementById('resultContainer');
+        const mode = document.querySelector('input[name="mergeMode"]:checked').value;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('請至少選擇一個或多個 Excel 檔案進行合併！');
+            return;
+        }
+
+        resultContainer.innerHTML = `⏳ 正在深度解析並合併 ${fileInput.files.length} 個檔案，請稍候...`;
+
+        const files = Array.from(fileInput.files);
+        const newWorkbook = XLSX.utils.book_new(); // 建立一個全新的空白 Excel 容器
+        let combinedData = []; // 用於模式 A (單一分頁) 的暫存器
+
+        let processedCount = 0;
+
+        files.forEach((file) => {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // 抓取每個上傳檔案的第一個分頁
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (mode === 'single') {
+                        // 模式 A：將資料全部推進同一個陣列
+                        combinedData = combinedData.concat(jsonData);
+                    } else {
+                        // 模式 B：一個檔案獨立建立一個分頁，並用檔名命名 (截斷過長檔名避免報錯)
+                        let sheetName = file.name.replace(/\.xlsx$|\.xls$/i, '').substring(0, 30);
+                        const newWorksheet = XLSX.utils.json_to_sheet(jsonData);
+                        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, sheetName);
+                    }
+
+                    processedCount++;
+
+                    // 當所有上傳的檔案都已經被讀取完畢
+                    if (processedCount === files.length) {
+                        if (mode === 'single') {
+                            if (combinedData.length === 0) {
+                                resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：所選檔案中無任何有效資料。</div>`;
+                                return;
+                            }
+                            const finalWorksheet = XLSX.utils.json_to_sheet(combinedData);
+                            XLSX.utils.book_append_sheet(newWorkbook, finalWorksheet, "合併資料總覽");
+                        }
+
+                        // 產生實體 Excel 並自動觸發瀏覽器下載
+                        XLSX.writeFile(newWorkbook, `好好篩_合併匯出結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+                        
+                        resultContainer.classList.remove('result-placeholder');
+                        resultContainer.innerHTML = `<div style="color: #28a745; font-weight: bold; padding: 15px;">🎉 大功告成！已成功合併 ${files.length} 個檔案並自動為您下載。</div>`;
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併【${file.name}】時發生錯誤，請確認檔案是否損毀。</div>`;
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
     }
 </script>
 
