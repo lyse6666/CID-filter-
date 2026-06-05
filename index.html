@@ -371,7 +371,7 @@
         });
     }
 
-    // 🛠️ 篩選功能終極大修正：同步改為「抓取所有可能欄位」與「長數字高精準比對」
+    // 🎯 完美盲篩機制：完全無視標題在哪，直接進行二維陣列（格點）篩選
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -383,7 +383,7 @@
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
         if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
 
-        resultContainer.innerHTML = "⏳ 正在讀取並進行全自動高精準比對中...";
+        resultContainer.innerHTML = "⏳ 正在讀取並進行『全網格盲篩』比對中...";
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -391,59 +391,56 @@
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                // 1. 強制 raw: false 將長數字讀成格式化後的文字字串，防止變形失真
                 const workbook = XLSX.read(data, { type: 'array', raw: false });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // 2. 先獲取整張表「最完整」的所有欄位標頭 (Headers)
-                const range = XLSX.utils.decode_range(worksheet['!ref']);
-                let allHeaders = [];
-                for (let C = range.s.c; C <= range.e.c; ++C) {
-                    const addr = XLSX.utils.encode_cell({ r: range.s.r, c: C });
-                    const cell = worksheet[addr];
-                    allHeaders.push(cell && cell.v ? cell.v.toString().trim() : `欄位_${C+1}`);
-                }
+                // 採用最高防禦力的二維矩陣讀取模式
+                const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
-                // 3. 加上 defval: "" 強制補齊所有列的格子，防止因為部分儲存格空白而導致整個欄位被閹割
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-                if (jsonData.length === 0) {
+                if (rawRows.length === 0) {
                     resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 檔案內容為空。</div>`;
                     return;
                 }
 
-                // 4. 精準比對長字串
-                const matchedRows = jsonData.filter(row => {
-                    return Object.values(row).some(val => {
-                        if (val === undefined || val === null) return false;
-                        return targetAccounts.includes(val.toString().trim());
-                    });
-                });
+                const headerRow = rawRows[0];
+                let filteredRows = [];
 
-                if (matchedRows.length === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到任何相符的長數字 ID 資料。</div>`;
+                // 進行盲篩，完全保留整列棋盤格結構
+                for (let i = 0; i < rawRows.length; i++) {
+                    const currentRow = rawRows[i];
+                    const hasMatch = currentRow.some(cellVal => {
+                        if (cellVal === undefined || cellVal === null) return false;
+                        return targetAccounts.includes(cellVal.toString().trim());
+                    });
+                    
+                    if (hasMatch) {
+                        filteredRows.push(currentRow);
+                    }
+                }
+
+                if (filteredRows.length === 0) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到任何相符的帳號資料（請確認雲端與 Excel 內的 ID 字元相同）。</div>`;
                     return;
                 }
 
-                // 5. 確保匯出的工作表帶有「完整的所有標頭欄位」
                 currentFilterWorkbook = XLSX.utils.book_new();
-                const newSheet = XLSX.utils.json_to_sheet(matchedRows, { header: allHeaders });
-                XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "完整篩選結果");
+                const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
+                XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "盲篩過濾結果");
 
                 // 渲染界面
                 let html = `<div class="download-box">`;
-                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 比對完全成功！共精準抓到 ${matchedRows.length} 筆完整資料</div>`;
-                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 完整欄位 Excel 檔</button>`;
+                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 網格盲篩成功！共精準抓到 ${filteredRows.length} 列完整數據</div>`;
+                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 原始全欄位 Excel 檔</button>`;
                 html += `</div>`;
 
-                // 網頁預覽表格呈現
+                // 網頁預覽
                 html += `<div style="overflow-x: auto; max-height: 300px;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
-                allHeaders.forEach(h => { html += `<th>${h}</th>`; });
+                headerRow.forEach((h, idx) => { html += `<th>${h || '欄位_'+(idx+1)}</th>`; });
                 html += `</tr></thead><tbody>`;
-                matchedRows.forEach(row => {
+                filteredRows.forEach(row => {
                     html += `<tr>`;
-                    allHeaders.forEach(h => { html += `<td>${row[h] !== undefined ? row[h] : ''}</td>`; });
+                    headerRow.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
                     html += `</tr>`;
                 });
                 html += `</tbody></table></div>`;
@@ -461,10 +458,10 @@
 
     function downloadFilterExcel(cid) {
         if (!currentFilterWorkbook) return;
-        XLSX.writeFile(currentFilterWorkbook, `好好篩_精確篩選結果_${cid}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+        XLSX.writeFile(currentFilterWorkbook, `好好篩_盲篩結果_${cid}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
     }
 
-    // 多檔案合併功能
+    // 🛠️ 多檔案合併功能同步升級：全面採用全網格盲合併，相容所有特殊標題結構
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -472,7 +469,7 @@
 
         if (!fileInput.files || fileInput.files.length === 0) { alert('請至少選擇一個或多個 Excel 檔案進行合併！'); return; }
 
-        resultContainer.innerHTML = `⏳ 正在高精準解析並合併 ${fileInput.files.length} 個檔案，請稍候...`;
+        resultContainer.innerHTML = `⏳ 正在進行高精準矩陣合併 ${fileInput.files.length} 個檔案，請稍候...`;
 
         const files = Array.from(fileInput.files);
         currentMergeWorkbook = XLSX.utils.book_new(); 
@@ -487,13 +484,15 @@
                     const workbook = XLSX.read(data, { type: 'array', raw: false });
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    
+                    // 合併功能在此同步更新為 `{ header: 1 }` 盲合併機制，100%保留所有行列格子
+                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
                     if (mode === 'single') {
-                        combinedData = combinedData.concat(jsonData);
+                        combinedData = combinedData.concat(rawRows);
                     } else {
                         let sheetName = file.name.replace(/\.xlsx$|\.xls$/i, '').substring(0, 30);
-                        const newWorksheet = XLSX.utils.json_to_sheet(jsonData);
+                        const newWorksheet = XLSX.utils.aoa_to_sheet(rawRows);
                         XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, sheetName);
                     }
 
@@ -502,22 +501,22 @@
                     if (processedCount === files.length) {
                         if (mode === 'single') {
                             if (combinedData.length === 0) {
-                                resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：所選檔案中無任何有效資料。</div>`;
+                                resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：檔案中無任何有效資料。</div>`;
                                 return;
                             }
-                            const finalWorksheet = XLSX.utils.json_to_sheet(combinedData);
+                            const finalWorksheet = XLSX.utils.aoa_to_sheet(combinedData);
                             XLSX.utils.book_append_sheet(currentMergeWorkbook, finalWorksheet, "合併資料總覽");
                         }
 
                         try {
-                            XLSX.writeFile(currentMergeWorkbook, `好好篩_高精準合併結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+                            XLSX.writeFile(currentMergeWorkbook, `好好篩_全矩陣合併結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
                         } catch (e) { console.log("自動下載遭攔截"); }
 
                         resultContainer.classList.remove('result-placeholder');
                         resultContainer.innerHTML = `
                             <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
-                                <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 高精準合併已完成！</div>
-                                <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已全面鎖定長數字防止變形，請直接點擊下方按鈕存檔：</p>
+                                <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 盲合併分析已完成！</div>
+                                <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已完美相容非標準行格式與長數字，請點擊按鈕存檔：</p>
                                 <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我手動下載合併後的 Excel 檔</button>
                             </div>
                         `;
@@ -533,7 +532,7 @@
 
     function triggerMergeDownload() {
         if (!currentMergeWorkbook) return;
-        XLSX.writeFile(currentMergeWorkbook, `好好篩_高精準合併結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+        XLSX.writeFile(currentMergeWorkbook, `好好篩_全矩陣合併結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
     }
 </script>
 
