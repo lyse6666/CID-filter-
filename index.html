@@ -108,11 +108,6 @@
             color: white;
         }
         .btn-purple:hover { background-color: #59359a; }
-        .btn-orange {
-            background-color: #fd7e14;
-            color: white;
-        }
-        .btn-orange:hover { background-color: #da6606; }
         .btn-danger {
             background-color: #fff;
             color: #dc3545;
@@ -165,6 +160,15 @@
         }
         th {
             background-color: #f8f9fa;
+        }
+        /* 快閃顯眼下載按鈕外觀 */
+        .download-box {
+            background-color: #e8f4fd;
+            border: 2px dashed #007bff;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
         }
     </style>
 </head>
@@ -231,7 +235,7 @@
         </div>
 
         <div class="card">
-            <h3>執行結果狀態</h3>
+            <h3>執行結果與下載區</h3>
             <div id="resultContainer" class="result-placeholder">
                 請選擇功能並上傳對應檔案進行操作。
             </div>
@@ -240,16 +244,18 @@
 </div>
 
 <script>
-    // 完美的後台通用門牌網址，包含 /exec
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
-    
     let cloudDatabase = {};
+    
+    // 全域變數，用來隨時給下載按鈕抓取最新產生出來的工作簿物件
+    let currentFilterWorkbook = null;
+    let currentMergeWorkbook = null;
 
     window.onload = function() {
         loadFromCloud();
     };
 
-    // 讀取雲端資料（維持原功能）
+    // 讀取雲端資料
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
@@ -270,20 +276,17 @@
             updateCidDropdownAndList();
         })
         .catch(err => {
-            console.error("雲端讀取失敗細節:", err);
+            console.error(err);
             statusDiv.className = "status-text status-error";
             statusDiv.innerText = "❌ 未正確設定雲端網址";
         });
     }
 
-    // 更新介面功能（維持原功能）
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
-        
         select.innerHTML = '';
         listContainer.innerHTML = '';
-
         const cids = Object.keys(cloudDatabase);
 
         if (cids.length === 0) {
@@ -307,24 +310,15 @@
             item.style.borderRadius = "5px";
             item.style.cursor = "pointer";
             item.style.border = "1px solid #e9ecef";
-            item.style.transition = "0.2s";
             item.style.fontSize = "13px";
-            item.title = "點擊查看詳細帳號名單";
-            
-            item.onmouseover = function() { this.style.backgroundColor = "#e9ecef"; };
-            item.onmouseout = function() { this.style.backgroundColor = "#f8f9fa"; };
             item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
-            
             item.onclick = function() {
-                const accountDetail = cloudDatabase[cid].join('\n');
-                alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${accountDetail}`);
+                alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${cloudDatabase[cid].join('\n')}`);
             };
-            
             listContainer.appendChild(item);
         });
     }
 
-    // 儲存至雲端功能（維持原功能）
     function saveToCloud() {
         const cidName = document.getElementById('cidName').value.trim();
         const accountListText = document.getElementById('accountList').value.trim();
@@ -336,7 +330,6 @@
         }
 
         const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
-
         statusDiv.className = "status-text status-loading";
         statusDiv.innerText = "💾 正在同步變更至雲端資料庫...";
 
@@ -363,10 +356,8 @@
         });
     }
 
-    // 清除雲端功能（維持原功能）
     function clearAllRecords() {
         if (!confirm("確定要刪除雲端試算表上的所有歷史紀錄嗎？此動作無法復原。")) return;
-        
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
         statusDiv.innerText = "🗑️ 正在清空雲端資料...";
@@ -391,26 +382,17 @@
         });
     }
 
-    // 原功能：執行自動比對篩選功能
+    // 升級功能一：比對篩選並提供明確下載按鈕
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('resultContainer');
 
-        if (!selectedCid || selectedCid.startsWith('--')) {
-            alert('請選擇有效的 CID！');
-            return;
-        }
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('請選擇要上傳的 Excel 檔案！');
-            return;
-        }
+        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID！'); return; }
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇要上傳的 Excel 檔案！'); return; }
 
         const targetAccounts = cloudDatabase[selectedCid] || [];
-        if (targetAccounts.length === 0) {
-            alert('該 CID 在雲端中無對應的帳號名單！');
-            return;
-        }
+        if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
 
         resultContainer.innerHTML = "⏳ 正在讀取並自動比對中，請稍候...";
 
@@ -428,8 +410,7 @@
                 const matchedRows = jsonData.filter(row => {
                     return Object.values(row).some(val => {
                         if (!val) return false;
-                        const strVal = val.toString().trim();
-                        return targetAccounts.includes(strVal);
+                        return targetAccounts.includes(val.toString().trim());
                     });
                 });
 
@@ -438,79 +419,81 @@
                     return;
                 }
 
-                let tableHtml = `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 比對完成，共篩選出 ${matchedRows.length} 筆相符資料：</div>`;
-                tableHtml += `<div style="overflow-x: auto;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
-                
-                const headers = Object.keys(matchedRows[0]);
-                headers.forEach(h => { tableHtml += `<th>${h}</th>`; });
-                tableHtml += `</tr></thead><tbody>`;
+                // 核心修復：建立實體下載物件
+                currentFilterWorkbook = XLSX.utils.book_new();
+                const newSheet = XLSX.utils.json_to_sheet(matchedRows);
+                XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "篩選結果明細");
 
+                // 產出介面：新增醒目的藍色「手動下載按鈕」
+                let html = `<div class="download-box">`;
+                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 篩選成功！共找到 ${matchedRows.length} 筆相符資料</div>`;
+                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 點我下載比對篩選後的 Excel 檔</button>`;
+                html += `</div>`;
+
+                // 下方保留網頁預覽預覽表格
+                html += `<div style="overflow-x: auto; max-height: 300px;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
+                const headers = Object.keys(matchedRows[0]);
+                headers.forEach(h => { html += `<th>${h}</th>`; });
+                html += `</tr></thead><tbody>`;
                 matchedRows.forEach(row => {
-                    tableHtml += `<tr>`;
-                    headers.forEach(h => {
-                        tableHtml += `<td>${row[h] !== undefined ? row[h] : ''}</td>`;
-                    });
-                    tableHtml += `</tr>`;
+                    html += `<tr>`;
+                    headers.forEach(h => { html += `<td>${row[h] !== undefined ? row[h] : ''}</td>`; });
+                    html += `</tr>`;
                 });
-                tableHtml += `</tbody></table></div>`;
+                html += `</tbody></table></div>`;
                 
                 resultContainer.classList.remove('result-placeholder');
-                resultContainer.innerHTML = tableHtml;
+                resultContainer.innerHTML = html;
 
             } catch (err) {
                 console.error(err);
                 resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取 Excel 失敗，請確認檔案格式是否正確。</div>`;
             }
         };
-
         reader.readAsArrayBuffer(file);
     }
 
-    // 🆕 全新核心功能：多檔案合併與自動匯出邏輯
+    // 觸發篩選檔案下載
+    function downloadFilterExcel(cid) {
+        if (!currentFilterWorkbook) return;
+        XLSX.writeFile(currentFilterWorkbook, `好好篩_篩選結果_${cid}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+    }
+
+    // 升級功能二：多檔案合併，並加入實體按鈕點擊下載機制（防止廣告阻擋）
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
         const mode = document.querySelector('input[name="mergeMode"]:checked').value;
 
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('請至少選擇一個或多個 Excel 檔案進行合併！');
-            return;
-        }
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請至少選擇一個或多個 Excel 檔案進行合併！'); return; }
 
         resultContainer.innerHTML = `⏳ 正在深度解析並合併 ${fileInput.files.length} 個檔案，請稍候...`;
 
         const files = Array.from(fileInput.files);
-        const newWorkbook = XLSX.utils.book_new(); // 建立一個全新的空白 Excel 容器
-        let combinedData = []; // 用於模式 A (單一分頁) 的暫存器
-
+        currentMergeWorkbook = XLSX.utils.book_new(); 
+        let combinedData = []; 
         let processedCount = 0;
 
         files.forEach((file) => {
             const reader = new FileReader();
-            
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // 抓取每個上傳檔案的第一個分頁
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
                     if (mode === 'single') {
-                        // 模式 A：將資料全部推進同一個陣列
                         combinedData = combinedData.concat(jsonData);
                     } else {
-                        // 模式 B：一個檔案獨立建立一個分頁，並用檔名命名 (截斷過長檔名避免報錯)
                         let sheetName = file.name.replace(/\.xlsx$|\.xls$/i, '').substring(0, 30);
                         const newWorksheet = XLSX.utils.json_to_sheet(jsonData);
-                        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, sheetName);
+                        XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, sheetName);
                     }
 
                     processedCount++;
 
-                    // 當所有上傳的檔案都已經被讀取完畢
                     if (processedCount === files.length) {
                         if (mode === 'single') {
                             if (combinedData.length === 0) {
@@ -518,24 +501,37 @@
                                 return;
                             }
                             const finalWorksheet = XLSX.utils.json_to_sheet(combinedData);
-                            XLSX.utils.book_append_sheet(newWorkbook, finalWorksheet, "合併資料總覽");
+                            XLSX.utils.book_append_sheet(currentMergeWorkbook, finalWorksheet, "合併資料總覽");
                         }
 
-                        // 產生實體 Excel 並自動觸發瀏覽器下載
-                        XLSX.writeFile(newWorkbook, `好好篩_合併匯出結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
-                        
-                        resultContainer.classList.remove('result-placeholder');
-                        resultContainer.innerHTML = `<div style="color: #28a745; font-weight: bold; padding: 15px;">🎉 大功告成！已成功合併 ${files.length} 個檔案並自動為您下載。</div>`;
-                    }
+                        // 雙重保險一：嘗試自動觸發下載
+                        try {
+                            XLSX.writeFile(currentMergeWorkbook, `好好篩_合併匯出結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+                        } catch (e) { console.log("自動下載遭瀏覽器攔截，改用按鈕下載"); }
 
+                        // 雙重保險二：在網頁上建立超級顯眼、防阻擋的紫色「手動下載大按鈕」
+                        resultContainer.classList.remove('result-placeholder');
+                        resultContainer.innerHTML = `
+                            <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
+                                <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 合併分析已完成！</div>
+                                <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">如果瀏覽器剛才沒有彈出下載視窗，請直接點擊下方按鈕存檔：</p>
+                                <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我手動下載合併後的 Excel 檔</button>
+                            </div>
+                        `;
+                    }
                 } catch (err) {
                     console.error(err);
-                    resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併【${file.name}】時發生錯誤，請確認檔案是否損毀。</div>`;
+                    resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併【${file.name}】時發生錯誤。</div>`;
                 }
             };
-
             reader.readAsArrayBuffer(file);
         });
+    }
+
+    // 觸發合併檔案下載
+    function triggerMergeDownload() {
+        if (!currentMergeWorkbook) return;
+        XLSX.writeFile(currentMergeWorkbook, `好好篩_合併匯出結果_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
     }
 </script>
 
