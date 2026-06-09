@@ -250,7 +250,6 @@
     let currentFilterWorkbook = null;
     let currentMergeWorkbook = null;
 
-    // 安全的日期字串生成函數，防止 toLocaleDateString() 在不同系統下噴錯
     function getSafeDateString() {
         const d = new Date();
         const yyyy = d.getFullYear();
@@ -380,7 +379,7 @@
         });
     }
 
-    // 🎯 功能一：精準盲篩第一分頁（永久保留首行中英標題、維持時間原格式）
+    // 🎯 功能一：精準盲篩第一分頁
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -412,7 +411,6 @@
                     return;
                 }
 
-                // 強制保留第一行作為中英文標題欄位
                 const headerRow = rawRows[0];
                 let filteredRows = [headerRow]; 
 
@@ -471,7 +469,7 @@
         XLSX.writeFile(currentFilterWorkbook, `好好篩_原始格式篩選_${cid}_${getSafeDateString()}.xlsx`);
     }
 
-    // 🎯 功能二：多檔案排序同步讀取合併（安全處理模式 B 檔名、確保模式 A 標題必保留在首行）
+    // 🎯 功能二：多檔案排序同步讀取合併（全新智慧防分頁重複衝突機制）
     async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -484,8 +482,10 @@
         const files = Array.from(fileInput.files);
         currentMergeWorkbook = XLSX.utils.book_new(); 
         let combinedData = []; 
+        
+        // 用來追蹤已經使用過的分頁名稱，防止重複衝突
+        let usedSheetNames = new Set();
 
-        // 使用標準 Promise 封裝 FileReader，確保多檔案可以「排隊」依序被讀取
         const readFileAsync = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -496,7 +496,6 @@
         };
 
         try {
-            // 用 for...of 迴圈強迫檔案「依序讀取」， fileIdx 絕對精準從 0 開始到最後
             for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
                 const file = files[fileIdx];
                 const arrayBuffer = await readFileAsync(file);
@@ -509,31 +508,43 @@
                 if (rawRows.length > 0) {
                     if (mode === 'single') {
                         if (fileIdx === 0) {
-                            // 模式 A：第一個被讀取的檔案，完整保留包含第 1 行的中英欄位標題
                             combinedData = combinedData.concat(rawRows);
                         } else {
-                            // 模式 A：第二個檔案開始，砍掉重複的第 1 行標題，只將純數據接在後面
                             const dataRowsOnly = rawRows.slice(1);
                             combinedData = combinedData.concat(dataRowsOnly);
                         }
                     } else {
                         // 模式 B：一個檔案獨立變成一個分頁。
-                        // 【安全修復點】：改用安全穩固的字串分割，並過濾掉不合 Excel 分頁名稱規範的特殊符號
                         let rawFileName = file.name || "Sheet";
                         let lastDotIdx = rawFileName.lastIndexOf('.');
                         let baseName = lastDotIdx !== -1 ? rawFileName.substring(0, lastDotIdx) : rawFileName;
                         
-                        // Excel 分頁不允許出現 : \ / ? * [ ] 等符號，將其替換為底線，並截斷在 30 個字元內
-                        let sheetName = baseName.replace(/[:\\/?*\[\]]/g, "_").substring(0, 30).trim();
+                        // 清理 Excel 禁止符號
+                        baseName = baseName.replace(/[:\\/?*\[\]]/g, "_").trim();
+                        
+                        // 【關鍵修復點】：改為抓取「檔名尾端 30 個字元」，保留最重要也最不同的 ID 部分！
+                        let sheetName = baseName.length > 30 ? baseName.substring(baseName.length - 30) : baseName;
                         if (!sheetName) sheetName = `File_${fileIdx + 1}`;
 
+                        // 【智慧防重】：如果處理完後名字依然重複，自動加上序號字尾
+                        let finalSheetName = sheetName;
+                        let counter = 1;
+                        while (usedSheetNames.has(finalSheetName.toLowerCase())) {
+                            let suffix = `_${counter}`;
+                            // 留出空間給序號
+                            let maxBaseLen = 30 - suffix.length;
+                            let truncatedBase = sheetName.substring(0, maxBaseLen);
+                            finalSheetName = truncatedBase + suffix;
+                            counter++;
+                        }
+                        usedSheetNames.add(finalSheetName.toLowerCase());
+
                         const newWorksheet = XLSX.utils.aoa_to_sheet(rawRows);
-                        XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, sheetName);
+                        XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, finalSheetName);
                     }
                 }
             }
 
-            // 所有排隊的檔案都讀取拼裝完畢後
             if (mode === 'single') {
                 if (combinedData.length === 0) {
                     resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：檔案中無任何有效資料。</div>`;
@@ -543,17 +554,16 @@
                 XLSX.utils.book_append_sheet(currentMergeWorkbook, finalWorksheet, "物理合併結果");
             }
 
-            // 執行安全下載
             try {
                 XLSX.writeFile(currentMergeWorkbook, `好好篩_多檔純物理合併_${getSafeDateString()}.xlsx`);
-            } catch (e) { console.log("自動下載遭系統攔截，請點選下方手動下載按鈕"); }
+            } catch (e) { console.log("自動下載遭系統攔截，請點選下載按鈕"); }
 
             resultContainer.classList.remove('result-placeholder');
             resultContainer.innerHTML = `
                 <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
                     <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 多檔案第一分頁合併成功！</div>
-                    <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">首行中英標題與分頁結構已全部對齊，且時間與格式皆完美保留：</p>
-                    <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我手動下載合併後的 Excel 檔</button>
+                    <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已自動保留尾端數字識別碼並完美去重，分頁名稱不衝突：</p>
+                    <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我下載模式 B 合併 Excel 檔</button>
                 </div>
             `;
 
