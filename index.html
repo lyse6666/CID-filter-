@@ -250,7 +250,7 @@
     let currentFilterWorkbook = null;
     let currentMergeWorkbook = null;
 
-    // 安全的安全日期字串生成函數，防止 toLocaleDateString() 在不同系統下噴錯
+    // 安全的日期字串生成函數，防止 toLocaleDateString() 在不同系統下噴錯
     function getSafeDateString() {
         const d = new Date();
         const yyyy = d.getFullYear();
@@ -471,7 +471,7 @@
         XLSX.writeFile(currentFilterWorkbook, `好好篩_原始格式篩選_${cid}_${getSafeDateString()}.xlsx`);
     }
 
-    // 🎯 功能二：多檔案排序同步讀取合併（解決 replace 報錯、確保模式 A 標題必保留在首行）
+    // 🎯 功能二：多檔案排序同步讀取合併（安全處理模式 B 檔名、確保模式 A 標題必保留在首行）
     async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -509,16 +509,24 @@
                 if (rawRows.length > 0) {
                     if (mode === 'single') {
                         if (fileIdx === 0) {
-                            // 第一個被讀取的檔案：完整保留它的第 1 行中英欄位標題與所有資料
+                            // 模式 A：第一個被讀取的檔案，完整保留包含第 1 行的中英欄位標題
                             combinedData = combinedData.concat(rawRows);
                         } else {
-                            // 第二個檔案開始：砍掉它重複的第 1 行標題，只把純數據接在後面
+                            // 模式 A：第二個檔案開始，砍掉重複的第 1 行標題，只將純數據接在後面
                             const dataRowsOnly = rawRows.slice(1);
                             combinedData = combinedData.concat(dataRowsOnly);
                         }
                     } else {
-                        // 模式 B：一個檔案獨立變成一個分頁
-                        let sheetName = file.name.replace(/\.xlsx$|\.xls$/i, '').substring(0, 30);
+                        // 模式 B：一個檔案獨立變成一個分頁。
+                        // 【安全修復點】：改用安全穩固的字串分割，並過濾掉不合 Excel 分頁名稱規範的特殊符號
+                        let rawFileName = file.name || "Sheet";
+                        let lastDotIdx = rawFileName.lastIndexOf('.');
+                        let baseName = lastDotIdx !== -1 ? rawFileName.substring(0, lastDotIdx) : rawFileName;
+                        
+                        // Excel 分頁不允許出現 : \ / ? * [ ] 等符號，將其替換為底線，並截斷在 30 個字元內
+                        let sheetName = baseName.replace(/[:\\/?*\[\]]/g, "_").substring(0, 30).trim();
+                        if (!sheetName) sheetName = `File_${fileIdx + 1}`;
+
                         const newWorksheet = XLSX.utils.aoa_to_sheet(rawRows);
                         XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, sheetName);
                     }
@@ -544,14 +552,14 @@
             resultContainer.innerHTML = `
                 <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
                     <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 多檔案第一分頁合併成功！</div>
-                    <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">首行中英標題已對齊，且時間與長 ID 數字格式皆完美保留：</p>
+                    <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">首行中英標題與分頁結構已全部對齊，且時間與格式皆完美保留：</p>
                     <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我手動下載合併後的 Excel 檔</button>
                 </div>
             `;
 
         } catch (err) {
             console.error(err);
-            resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併多個檔案時發生非同步排序錯誤，請重新嘗試。</div>`;
+            resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併多個檔案時發生錯誤，請確認檔案格式是否正常。</div>`;
         }
     }
 
