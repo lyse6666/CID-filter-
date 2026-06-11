@@ -96,11 +96,6 @@
             margin-bottom: 8px;
             color: #495057;
         }
-        .form-group p {
-            font-size: 12px;
-            color: #6c757d;
-            margin: -4px 0 8px 0;
-        }
         select, input[type="file"] {
             width: 100%;
             padding: 12px;
@@ -182,13 +177,13 @@
     <div class="tab-container">
         <button class="tab-btn active" onclick="switchTab('singleTab', this)">📄 1. 單頁(首頁)篩選</button>
         <button class="tab-btn" onclick="switchTab('multiFilterTab', this)">🎯 2. 多分頁獨立篩選</button>
-        <button class="tab-btn" onclick="switchTab('mergeSingleTab', this)">🔀 3. 多檔案合併(單一頁)</button>
+        <button class="tab-btn" onclick="switchTab('mergeSingleTab', this)">🔀 3. 多檔案合併(單一分頁)</button>
         <button class="tab-btn" onclick="switchTab('mergeMultiTab', this)">📚 4. 多檔案合併(多分頁)</button>
     </div>
 
     <div class="card" style="padding: 15px 25px; margin-bottom: 15px; background: #fffdfb; border: 1px solid #ffe8d6;">
         <div class="form-group" style="margin-bottom: 0;">
-            <label style="color: #e0630d;">💡 請先選擇本次要比對的比對標的 (CID 名單)：</label>
+            <label style="color: #e0630d;">🎯 篩選依據：所有功能皆會依照此選定的 CID 名單進行資料列搜尋</label>
             <select id="globalCidSelect" class="cidSelectClass">
                 <option>-- 正在載入雲端選單 --</option>
             </select>
@@ -198,7 +193,7 @@
     <div id="singleTab" class="tab-content active">
         <div class="card">
             <h3>📄 單頁（首頁）盲篩系統</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取並篩選上傳 Excel 檔案的第一個分頁（首頁）。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁（首頁），依 CID 名單進行搜尋，分頁名稱維持原首頁名稱。</p>
             <div class="form-group">
                 <label>選擇原始 Excel 檔案：</label>
                 <input type="file" id="excelFileSingle" accept=".xlsx, .xls">
@@ -210,7 +205,7 @@
     <div id="multiFilterTab" class="tab-content">
         <div class="card">
             <h3>🎯 多分頁獨立盲篩系統 (原分頁名稱保留)</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：同時篩選多個分頁，產出檔案內會保留所有分頁，且「分頁名稱原封不動照舊」。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁，依 CID 名單進行搜尋。匯出時保留所有分頁，且<b>「分頁名稱原封不動、完全同原始檔」</b>。</p>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案 (支援多分頁)：</label>
                 <input type="file" id="excelFileMultiFilter" accept=".xlsx, .xls">
@@ -221,8 +216,8 @@
 
     <div id="mergeSingleTab" class="tab-content">
         <div class="card">
-            <h3>🔀 多檔案合併系統 - 導出為單一分頁</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：可選取「多個 Excel 檔案」，系統會將所有檔案內的所有分頁資料全部揉合、篩選，最終合併成一個綜合分頁。</p>
+            <h3>🔀 多檔案合併系統 - 導出為單一分頁結果</h3>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依 CID 名單搜尋所有資料，最終將符合的所有結果合併揉成「一個綜合分頁（名為：多檔單頁合併結果）」導出。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeSingle" accept=".xlsx, .xls" multiple>
@@ -233,8 +228,8 @@
 
     <div id="mergeMultiTab" class="tab-content">
         <div class="card">
-            <h3>📚 多檔案合併系統 - 依同名分頁歸類合併</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：可選取「多個 Excel 檔案」，系統會把不同檔案中「名字相同的分頁」串聯合併（例如：A檔的2026-01頁與B檔的2026-01頁合併）。</p>
+            <h3>📚 多檔案合併系統 - 依同名分頁歸類合併結果</h3>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依 CID 名單搜尋各檔資料，並將原始同名的分頁串聯在一起，分頁更名為<b>「[原分頁名稱]_[CID名稱]」</b>（例：右圖效果）。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeMulti" accept=".xlsx, .xls" multiple>
@@ -264,7 +259,6 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
-    // 頁籤切換
     function switchTab(tabId, btnElement) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -272,14 +266,12 @@
         document.getElementById(tabId).classList.add('active');
         btnElement.classList.add('active');
         
-        // 切換時重設結果提示，避免混淆
         const resultContainer = document.getElementById('resultContainer');
         resultContainer.className = "result-placeholder";
         resultContainer.innerHTML = "請選擇 CID 並上傳對應檔案，再點擊上方按鈕執行。";
         currentWorkbook = null;
     }
 
-    // 網頁初始化與雲端連線
     window.onload = function() {
         loadFromCloud();
     };
@@ -324,7 +316,6 @@
         });
     }
 
-    // 取得當前選取的 CID 名單陣列
     function getSelectedTargetAccounts() {
         const selectedCid = document.getElementById('globalCidSelect').value;
         if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID 名單！'); return null; }
@@ -334,7 +325,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能一】：單頁（首頁）篩選
+    // 【功能一】：單頁（首頁）篩選 (分頁名稱維持原樣)
     // ────────────────────────────────────────────────────────
     function startSingleSheetFiltering() {
         const target = getSelectedTargetAccounts();
@@ -352,7 +343,6 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
                 
-                // 只抓第一個分頁
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
@@ -375,19 +365,19 @@
 
                 currentWorkbook = XLSX.utils.book_new();
                 const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
-                XLSX.utils.book_append_sheet(currentWorkbook, newSheet, firstSheetName);
+                XLSX.utils.book_append_sheet(currentWorkbook, newSheet, firstSheetName); // 沿用原本首頁分頁名稱
 
                 showDownloadUI(`好好篩_單頁篩選_${target.cid}_${getSafeDateString()}.xlsx`, `<li>首頁【${firstSheetName}】篩選完成，共篩出 <b>${matchedCount}</b> 筆帳號明細。</li>`);
             } catch (err) {
                 console.error(err);
-                resultContainer.innerHTML = `<div class="status-error">❌ 處理失敗，請確認檔案格式是否正確。</div>`;
+                resultContainer.innerHTML = `<div class="status-error">❌ 處理失敗，請確認檔案格式。</div>`;
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能二】：多分頁篩選（分頁名稱如原檔案）
+    // 【功能二】：多分頁篩選（分頁名稱原封不動完全保留）
     // ────────────────────────────────────────────────────────
     function startAllSheetsFiltering() {
         const target = getSelectedTargetAccounts();
@@ -427,7 +417,7 @@
                         if (hasMatch) filteredRows.push(row);
                     }
 
-                    // 🎯 核心要求：原封不動沿用原始分頁名稱 sheetName
+                    // 🎯 這裡只做純篩選：分頁名稱原封不動照舊（同左兩圖一樣）
                     const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
                     XLSX.utils.book_append_sheet(currentWorkbook, newSheet, sheetName);
                     summaryInfo.push(`<li>分頁【${sheetName}】: 成功篩選出 <b>${filteredRows.length - 1}</b> 筆帳號明細</li>`);
@@ -443,7 +433,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能三】：多檔案合併（單一分頁）
+    // 【功能三】：多檔案合併（單一分頁結果）
     // ────────────────────────────────────────────────────────
     function startCombineToSingleSheet() {
         const target = getSelectedTargetAccounts();
@@ -492,7 +482,7 @@
                         currentWorkbook = XLSX.utils.book_new();
                         const newSheet = XLSX.utils.aoa_to_sheet(mergedRows);
                         XLSX.utils.book_append_sheet(currentWorkbook, newSheet, "多檔單頁合併結果");
-                        showDownloadUI(`好好篩_多檔單頁合併_${target.cid}_${getSafeDateString()}.xlsx`, `<li>成功合併共 <b>${files.length}</b> 個外部檔案內的所有分頁，最終篩選產出 <b>${totalMatched}</b> 筆明細。</li>`);
+                        showDownloadUI(`好好篩_多檔單頁合併_${target.cid}_${getSafeDateString()}.xlsx`, `<li>成功合併共 <b>${files.length}</b> 個外部檔案，依據名單搜尋，最終篩選產出 <b>${totalMatched}</b> 筆明細。</li>`);
                     }
                 } catch (err) {
                     console.error(err);
@@ -504,7 +494,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能四】：多檔案合併（多分頁 - 同名歸類合併）
+    // 【功能四】：多檔案合併（多分頁 - 依同名分頁歸類合併，分頁更名為右圖結構）
     // ────────────────────────────────────────────────────────
     function startCombineToMultiSheets() {
         const target = getSelectedTargetAccounts();
@@ -516,7 +506,7 @@
         resultContainer.innerHTML = "⏳ 正在讀取多個檔案並依同名分頁結構進行串聯合併中...";
         const files = Array.from(fileInput.files);
         
-        let sheetsDataStore = {}; // 格式: { sheetName: { header: [], rows: [] } }
+        let sheetsDataStore = {}; 
         let fileProcessCount = 0;
 
         files.forEach(file => {
@@ -554,9 +544,14 @@
                             const sStore = sheetsDataStore[sName];
                             let finalSheetRows = [sStore.header, ...sStore.rows];
                             
+                            // 🎯 這裡實現右圖需求：[原分頁名稱]_[CID名稱]
+                            let combinedSheetName = `${sName}_${target.cid}`;
+                            combinedSheetName = combinedSheetName.replace(/[:\\/?*\[\]]/g, "_").trim();
+                            if (combinedSheetName.length > 31) combinedSheetName = combinedSheetName.substring(0, 31);
+                            
                             const newSheet = XLSX.utils.aoa_to_sheet(finalSheetRows);
-                            XLSX.utils.book_append_sheet(currentWorkbook, newSheet, sName);
-                            summaryInfo.push(`<li>同名分頁【${sName}】: 已串聯各檔案資料，共篩出 <b>${sStore.rows.length}</b> 筆明細。</li>`);
+                            XLSX.utils.book_append_sheet(currentWorkbook, newSheet, combinedSheetName);
+                            summaryInfo.push(`<li>分頁【${combinedSheetName}】: 已完成多檔名單搜尋合併，共篩出 <b>${sStore.rows.length}</b> 筆明細。</li>`);
                         });
 
                         showDownloadUI(`好好篩_多檔多頁合併_${target.cid}_${getSafeDateString()}.xlsx`, summaryInfo.join(''));
@@ -570,9 +565,6 @@
         });
     }
 
-    // ────────────────────────────────────────────────────────
-    // 共通 UI 下載與自動下載渲染器
-    // ────────────────────────────────────────────────────────
     function showDownloadUI(fileName, reportHtml) {
         const resultContainer = document.getElementById('resultContainer');
         let html = `<div class="download-box">`;
@@ -587,7 +579,6 @@
         resultContainer.classList.remove('result-placeholder');
         resultContainer.innerHTML = html;
 
-        // 觸發自動下載
         XLSX.writeFile(currentWorkbook, fileName);
     }
 
