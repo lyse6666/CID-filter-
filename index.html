@@ -256,7 +256,7 @@
     <div id="singleTab" class="tab-content active">
         <div class="card">
             <h3>📄 單頁（首頁）盲篩系統</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁，依選定 CID 做盲篩。若首頁篩出 0 筆則不會導出。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁，依選定 CID 做盲篩。</p>
             <div class="form-group">
                 <label>選擇原始 Excel 檔案：</label>
                 <input type="file" id="excelFileSingle" accept=".xlsx, .xls">
@@ -291,7 +291,7 @@
     <div id="mergeMultiTab" class="tab-content">
         <div class="card">
             <h3>📚 多檔案合併系統 - 依原始同名分頁合併結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個檔案，並將同名分頁串聯。<b>優化：合併後若該分頁結果為 0 筆，亦會自動刪除不導出。</b></p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個檔案並將同名分頁串聯。<b>優化：合併後若該分頁結果為 0 筆，亦會自動刪除不導出。</b></p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeMulti" accept=".xlsx, .xls" multiple>
@@ -309,7 +309,9 @@
 </div>
 
 <script>
+    // ⚠️ 請在此處替換為你原本完全正常的 Google Apps Script Web App 網址 ⚠️
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
+    
     let cloudDatabase = {};
     let currentWorkbook = null;
 
@@ -339,10 +341,12 @@
 
     window.onload = function() { loadFromCloud(); };
 
+    // 🟢 還原回最原始穩定的 GET 方法
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
-        fetch(CLOUD_API_URL, { method: "GET", redirect: "follow" })
+        
+        fetch(CLOUD_API_URL)
         .then(res => res.json())
         .then(data => {
             cloudDatabase = data || {};
@@ -353,7 +357,7 @@
         .catch(err => {
             console.error(err);
             statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 未正確設定雲端網址或連線失敗";
+            statusDiv.innerText = "❌ 無法讀取雲端資料，請確認 API 網址";
         });
     }
 
@@ -377,23 +381,38 @@
         renderAccountTags();
     }
 
+    // 🟢 核心修正：所有的雲端傳輸全部還原成「對話第一行」最穩定的 URLSearchParams 表單傳送模式！
     function createNewCidToCloud() {
         const input = document.getElementById('newCidInput');
         const cidValue = input.value.trim().toUpperCase();
         if (!cidValue) return;
-        cloudDatabase[cidValue] = [];
+        
+        // 本地立即更新，體感不卡頓
+        if (!cloudDatabase[cidValue]) cloudDatabase[cidValue] = [];
         input.value = '';
         updateCidDropdown(cidValue);
-        fetch(CLOUD_API_URL, { method: "POST", redirect: "follow", body: JSON.stringify({ action: "addCid", cid: cidValue }) }).catch(()=>{});
+
+        // 使用第一行最穩定的通訊格式發送
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ "action": "addCid", "cid": cidValue })
+        }).catch(e => console.warn(e));
     }
 
     function deleteCidFromCloud() {
         const cidValue = document.getElementById('globalCidSelect').value;
         if (!cidValue || cidValue.startsWith('--')) return;
-        if (!confirm(`確定要刪除整個 [${cidValue}] 分類嗎？`)) return;
+        if (!confirm(`確定要刪除整個 [${cidValue}] 分類以及內含的所有帳號嗎？`)) return;
+        
         delete cloudDatabase[cidValue];
         updateCidDropdown();
-        fetch(CLOUD_API_URL, { method: "POST", redirect: "follow", body: JSON.stringify({ action: "removeCid", cid: cidValue }) }).catch(()=>{});
+
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ "action": "removeCid", "cid": cidValue })
+        }).catch(e => console.warn(e));
     }
 
     function renderAccountTags() {
@@ -419,7 +438,12 @@
             rm.onclick = function() {
                 cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== acc);
                 updateCidDropdown(selectedCid);
-                fetch(CLOUD_API_URL, { method: "POST", redirect: "follow", body: JSON.stringify({ action: "remove", cid: selectedCid, account: acc }) }).catch(()=>{});
+                
+                fetch(CLOUD_API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ "action": "remove", "cid": selectedCid, "account": acc })
+                }).catch(e => console.warn(e));
             };
             tag.appendChild(rm); container.appendChild(tag);
         });
@@ -430,10 +454,16 @@
         const input = document.getElementById('newAccountInput');
         const value = input.value.trim();
         if (!selectedCid || !value || cloudDatabase[selectedCid].includes(value)) return;
+        
         cloudDatabase[selectedCid].push(value);
         input.value = '';
         updateCidDropdown(selectedCid);
-        fetch(CLOUD_API_URL, { method: "POST", redirect: "follow", body: JSON.stringify({ action: "add", cid: selectedCid, account: value }) }).catch(()=>{});
+
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ "action": "add", "cid": selectedCid, "account": value })
+        }).catch(e => console.warn(e));
     }
 
     function getSelectedTargetAccounts() {
@@ -441,6 +471,10 @@
         if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇 CID！'); return null; }
         return { cid: selectedCid, list: (cloudDatabase[selectedCid] || []).map(a => a.toString().trim()) };
     }
+
+    // ────────────────────────────────────────────────────────
+    // 以下篩選核心功能：完美整合「修復受損Excel」與「自動剔除0筆空分頁」邏輯
+    // ────────────────────────────────────────────────────────
 
     // 【功能一】：單頁（首頁）篩選
     function startSingleSheetFiltering() {
@@ -463,7 +497,6 @@
                     if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) filtered.push(rawRows[i]);
                 }
 
-                // 🌟 優化：如果連首頁都完全沒有篩出資料，跳出提示不導出空檔
                 if (filtered.length <= 1) {
                     document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 首頁 [${firstSheetName}] 篩選後無任何相符資料，已取消導出。</div>`;
                     return;
@@ -474,13 +507,13 @@
                 showDownloadUI(`好好篩_單頁篩選_${target.cid}_${getSafeDateString()}.xlsx`, `<li>首頁 [${firstSheetName}] 處理成功，篩出 ${filtered.length-1} 筆。</li>`);
             } catch(err) {
                 console.error(err);
-                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 檔案結構損壞，請重新另存後再上傳。</div>`;
+                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 檔案解析失敗，請確認檔案。</div>`;
             }
         };
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    // 【功能二】：多分頁獨立篩選 (🌟此處加入自動剔除空分頁邏輯🌟)
+    // 【功能二】：多分頁獨立篩選 (自動剔除無相符資料的空殼分頁)
     function startAllSheetsFiltering() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFileMultiFilter');
@@ -500,25 +533,21 @@
                     const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
                     if(!rawRows.length) return;
                     
-                    let filtered = [rawRows[0]]; // 放入 Header
+                    let filtered = [rawRows[0]]; 
                     for(let i=1; i<rawRows.length; i++) {
                         if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) filtered.push(rawRows[i]);
                     }
 
-                    // 🌟 核心過濾修正：如果此分頁篩選出來的資料「只有 Header」(小於等於1行)，代表 0 筆相符。
-                    // 直接 return 跳過，不寫入新的活頁簿中！
-                    if (filtered.length <= 1) {
-                        return; 
-                    }
+                    // 🌟 若分頁篩選後「只有 Header」(等於0筆相符)，直接跳過，不寫入檔案中！
+                    if (filtered.length <= 1) return; 
 
-                    // 只有真正有資料的分頁才會走到這一步被留下來
                     XLSX.utils.book_append_sheet(currentWorkbook, XLSX.utils.aoa_to_sheet(filtered), name);
                     summary.push(`<li>分頁 [${name}]: 成功篩出 <b>${filtered.length-1}</b> 筆明細</li>`);
                     validSheetCount++;
                 });
 
                 if (validSheetCount === 0) {
-                    document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 整個活頁簿的所有分頁中，皆無任何符合此 CID 的名單資料！已取消導出。</div>`;
+                    document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 整個檔案的分頁中皆無符合此 CID 的名單！已取消導出。</div>`;
                     return;
                 }
 
@@ -569,7 +598,7 @@
         });
     }
 
-    // 【功能四】：多檔案合併（多分頁結果 - 🌟同樣加入剔除空分頁邏輯🌟）
+    // 【功能四】：多檔案合併（多分頁結果）
     function startCombineToMultiSheets() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFilesMergeMulti');
@@ -600,10 +629,7 @@
                     let validSheetCount = 0;
 
                     Object.keys(store).forEach(sName => {
-                        // 🌟 優化：如果該同名分頁加總合併後依然是 0 筆，直接拋棄不寫入檔案
-                        if (store[sName].rows.length === 0) {
-                            return; 
-                        }
+                        if (store[sName].rows.length === 0) return; 
 
                         let finalRows = [store[sName].header, ...store[sName].rows];
                         let cName = `${sName}_${target.cid}`.replace(/[:\\/?*\[\]]/g, "_").substring(0,31);
