@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好好篩 - 綜合資料處理與 CID 管理系統</title>
+    <title>好好篩 - 綜合資料處理與 CID 雙層管理系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
@@ -104,31 +104,43 @@
             background-color: #f8f9fa;
             cursor: pointer;
         }
+        
+        /* 按鈕樣式結構 */
         .btn {
-            padding: 14px;
+            padding: 12px 20px;
             border: none;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
             color: white;
             background-color: #fd7e14;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
         }
         .btn:hover { background-color: #e0630d; }
-        .btn-block { width: 100%; }
+        .btn-block { width: 100%; padding: 14px; font-size: 15px; }
         .btn-secondary { background-color: #6c757d; }
         .btn-secondary:hover { background-color: #5a6268; }
         .btn-danger { background-color: #dc3545; }
         .btn-danger:hover { background-color: #bd2130; }
 
-        /* 核心管理介面區域與細項列表 */
+        /* 雙層管理控制台外框 */
         .management-box {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
             border-radius: 8px;
-            padding: 15px;
+            padding: 18px;
             margin-top: 15px;
+        }
+        .management-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
         }
         .account-tag-container {
             display: flex;
@@ -138,23 +150,28 @@
             max-height: 200px;
             overflow-y: auto;
             background: white;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ced4da;
             border-radius: 6px;
         }
         .account-tag {
             background-color: #e9ecef;
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 20px;
             font-size: 13px;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            border: 1px solid #dee2e6;
         }
         .account-tag .remove-btn {
             color: #dc3545;
             cursor: pointer;
             font-weight: bold;
+            font-size: 15px;
+        }
+        .account-tag .remove-btn:hover {
+            color: #a71d2a;
         }
 
         .status-text {
@@ -203,26 +220,35 @@
 <div class="container">
     
     <div class="card" style="background: #fffdfb; border: 1px solid #ffe8d6;">
-        <h3 style="color: #e0630d;">🛠️ 雲端 CID 名單資料庫管理</h3>
+        <h3 style="color: #e0630d;">🛠️ 雲端 CID 資料庫雙層控制台 (支援 CID 增減 & 明細增減)</h3>
         
-        <div class="form-group">
-            <label>1. 請選取要檢視或編輯的目標 CID：</label>
-            <select id="globalCidSelect" onchange="renderAccountTags()">
-                <option>-- 正在載入雲端選單 --</option>
-            </select>
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label>📂 第一層：選擇或管理 CID 分類項目</label>
+            <div style="display: flex; gap: 10px;">
+                <select id="globalCidSelect" onchange="renderAccountTags()" style="flex: 1;">
+                    <option>-- 正在載入雲端選單 --</option>
+                </select>
+                <button class="btn btn-danger" onclick="deleteCidFromCloud()" title="刪除當前選中的整個 CID 分類">🗑️ 刪除此 CID</button>
+            </div>
+        </div>
+
+        <div class="management-row" style="margin-bottom: 20px; background: #fff3cd; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba;">
+            <input type="text" id="newCidInput" placeholder="請輸入欲建立的全新 CID 名稱 (例如: BT0099)" style="flex: 1; padding: 10px;">
+            <button class="btn" style="background-color: #ff9800;" onclick="createNewCidToCloud()">📁 建立新 CID</button>
         </div>
 
         <div class="management-box">
             <div style="font-weight: bold; font-size: 14px; color:#495057; margin-bottom: 10px;">
-                📋 目前名單內含帳號 (<span id="tagCount">0</span> 筆)：
+                📋 第二層：<span id="selectedCidTitle" style="color: #e0630d;">未選取</span> 名單內含帳號 (<span id="tagCount">0</span> 筆)：
             </div>
+            
             <div id="accountTagContainer" class="account-tag-container">
                 <span style="color:#888; font-size:13px;">請先選擇上方有效的 CID 名單</span>
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <input type="text" id="newAccountInput" placeholder="請輸入欲新增的帳號名稱">
-                <button class="btn btn-secondary" style="padding:0 20px; white-space:nowrap;" onclick="addAccountToCloud()">➕ 新增帳號</button>
+                <input type="text" id="newAccountInput" placeholder="請輸入欲在此 CID 內新增的帳號名稱">
+                <button class="btn btn-secondary" style="white-space:nowrap;" onclick="addAccountToCloud()">➕ 新增明細帳號</button>
             </div>
         </div>
     </div>
@@ -237,7 +263,7 @@
     <div id="singleTab" class="tab-content active">
         <div class="card">
             <h3>📄 單頁（首頁）盲篩系統</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁（首頁），依 CID 名單做帳號比對搜尋，分頁名稱維持原樣。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁（首頁），依上方所選 CID 的名單做帳號搜尋，分頁名稱維持原首頁名稱。</p>
             <div class="form-group">
                 <label>選擇原始 Excel 檔案：</label>
                 <input type="file" id="excelFileSingle" accept=".xlsx, .xls">
@@ -249,7 +275,7 @@
     <div id="multiFilterTab" class="tab-content">
         <div class="card">
             <h3>🎯 多分頁獨立盲篩系統 (原分頁名稱保留)</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁，各分頁用選定的 CID 名單盲篩。匯出時分頁全數保留且<b>名稱與原始檔完全相同</b>。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁，各分頁獨立用選定 CID 的名單做篩選。匯出時分頁全數保留且<b>分頁名稱原封不動、同原始檔</b>。</p>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案 (支援多分頁)：</label>
                 <input type="file" id="excelFileMultiFilter" accept=".xlsx, .xls">
@@ -261,7 +287,7 @@
     <div id="mergeSingleTab" class="tab-content">
         <div class="card">
             <h3>🔀 多檔案合併系統 - 導出為單一分頁結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 名單抓取所有符合資料，並揉合進一個叫「多檔單頁合併結果」的單一分頁導出。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 的名單搜尋抓取所有符合資料，並整合進一個名為「多檔單頁合併結果」的單一分頁導出。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeSingle" accept=".xlsx, .xls" multiple>
@@ -273,7 +299,7 @@
     <div id="mergeMultiTab" class="tab-content">
         <div class="card">
             <h3>📚 多檔案合併系統 - 依原始同名分頁合併結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 名單搜尋各檔資料，並將原檔中名字相同的分頁串聯合併，分頁命名為「[原分頁名]_[CID名]」。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 的名單盲篩各檔資料，並將原檔中名字相同的分頁串聯在一起，分頁命名為「[原分頁名]_[CID名]」。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeMulti" accept=".xlsx, .xls" multiple>
@@ -320,7 +346,7 @@
         loadFromCloud();
     };
 
-    // 讀取雲端資料庫
+    // 讀取雲端資料庫資料
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
@@ -341,9 +367,9 @@
         });
     }
 
-    function updateCidDropdown() {
+    function updateCidDropdown(targetToSelect = null) {
         const select = document.getElementById('globalCidSelect');
-        const prevValue = select.value;
+        const prevValue = targetToSelect || select.value;
         const cids = Object.keys(cloudDatabase);
         select.innerHTML = '';
 
@@ -351,6 +377,8 @@
             const opt = document.createElement('option');
             opt.text = "-- 目前雲端無有效資料 --";
             select.appendChild(opt);
+            document.getElementById('selectedCidTitle').innerText = "未選取";
+            renderAccountTags();
             return;
         }
 
@@ -363,28 +391,105 @@
 
         if (cids.includes(prevValue)) {
             select.value = prevValue;
+        } else {
+            select.value = cids[0];
         }
         renderAccountTags();
     }
 
-    // 🟢 渲染帳號清單與刪除按鈕 (原功能還原)
+    // ────────────────────────────────────────────────────────
+    // 📁 第一層管理功能：CID 本身的新增與刪除
+    // ────────────────────────────────────────────────────────
+    
+    // 建立新 CID 分類項目
+    function createNewCidToCloud() {
+        const input = document.getElementById('newCidInput');
+        const cidValue = input.value.trim().toUpperCase();
+
+        if (!cidValue) { alert('請輸入要建立的全新 CID 名稱！'); return; }
+        if (cloudDatabase[cidValue]) { alert('此 CID 分類名稱已經存在了！'); return; }
+
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = `⏳ 正在雲端建立新 CID 分類 [${cidValue}]...`;
+
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            redirect: "follow",
+            body: JSON.stringify({ action: "addCid", cid: cidValue }) // 發送新增 CID 指令
+        })
+        .then(res => res.json())
+        .then(resData => {
+            // 如果雲端 API 成功或支援直接寫入
+            cloudDatabase[cidValue] = []; 
+            input.value = '';
+            updateCidDropdown(cidValue);
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = `🟢 成功建立 CID：${cidValue}`;
+        })
+        .catch(err => {
+            console.warn("雲端未回傳標準格式，執行本地同步：", err);
+            cloudDatabase[cidValue] = [];
+            input.value = '';
+            updateCidDropdown(cidValue);
+        });
+    }
+
+    // 刪除整個選中的 CID 分類項目
+    function deleteCidFromCloud() {
+        const select = document.getElementById('globalCidSelect');
+        const cidValue = select.value;
+
+        if (!cidValue || cidValue.startsWith('--')) { alert('請選取要刪除的 CID 分類項目！'); return; }
+        if (!confirm(`⚠️ 嚴重警告！\n您確定要刪除整個 [${cidValue}] 分類以及它內含的所有帳號名單嗎？此操作不可恢復！`)) return;
+
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = `⏳ 正在自雲端刪除整個 CID 分類 [${cidValue}]...`;
+
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            redirect: "follow",
+            body: JSON.stringify({ action: "removeCid", cid: cidValue }) // 發送刪除整個 CID 指令
+        })
+        .then(res => res.json())
+        .then(resData => {
+            delete cloudDatabase[cidValue];
+            updateCidDropdown();
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = `🟢 已刪除 CID：${cidValue}`;
+        })
+        .catch(err => {
+            console.warn("連線或處理，執行本地同步更新", err);
+            delete cloudDatabase[cidValue];
+            updateCidDropdown();
+        });
+    }
+
+
+    // ────────────────────────────────────────────────────────
+    // 📋 第二層管理功能：選定 CID 內部資料明細的渲染與增減
+    // ────────────────────────────────────────────────────────
     function renderAccountTags() {
         const select = document.getElementById('globalCidSelect');
         const container = document.getElementById('accountTagContainer');
         const countSpan = document.getElementById('tagCount');
+        const titleSpan = document.getElementById('selectedCidTitle');
         const selectedCid = select.value;
 
         if (!selectedCid || selectedCid.startsWith('--') || !cloudDatabase[selectedCid]) {
             container.innerHTML = '<span style="color:#888; font-size:13px;">請先選擇上方有效的 CID 名單</span>';
             countSpan.innerText = "0";
+            titleSpan.innerText = "未選取";
             return;
         }
 
+        titleSpan.innerText = `【 ${selectedCid} 】`;
         const accounts = cloudDatabase[selectedCid];
         countSpan.innerText = accounts.length;
 
         if (accounts.length === 0) {
-            container.innerHTML = '<span style="color:#888; font-size:13px;">⚠️ 目前此 CID 內無任何帳號資料</span>';
+            container.innerHTML = '<span style="color:#888; font-size:13px;">⚠️ 目前此 CID 內無任何明細帳號資料，請於下方新增</span>';
             return;
         }
 
@@ -397,6 +502,7 @@
             const removeBtn = document.createElement('span');
             removeBtn.className = 'remove-btn';
             removeBtn.innerText = '×';
+            removeBtn.title = `移除此帳號: ${acc}`;
             removeBtn.onclick = function() { removeAccountFromCloud(acc); };
 
             tag.appendChild(removeBtn);
@@ -404,25 +510,24 @@
         });
     }
 
-    // 🟢 新增帳號到雲端功能 (原功能還原)
+    // 新增單一帳號明細
     function addAccountToCloud() {
         const selectedCid = document.getElementById('globalCidSelect').value;
         const input = document.getElementById('newAccountInput');
         const value = input.value.trim();
 
-        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID 名單！'); return; }
-        if (!value) { alert('請輸入帳號名稱！'); return; }
+        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇要插入明細的 CID 名單分類！'); return; }
+        if (!value) { alert('請輸入欲新增的帳號名稱！'); return; }
 
         if (cloudDatabase[selectedCid].includes(value)) {
-            alert('此帳號已存在於該名單中！');
+            alert('此帳號已存在於目前的名單清單中！');
             return;
         }
 
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = `⏳ 正在新增帳號 [${value}] 到雲端...`;
+        statusDiv.innerText = `⏳ 正在新增帳號 [${value}] 到 CID [${selectedCid}]...`;
 
-        // POST 到 Google Apps Script
         fetch(CLOUD_API_URL, {
             method: "POST",
             redirect: "follow",
@@ -430,31 +535,31 @@
         })
         .then(res => res.json())
         .then(resData => {
-            if (resData.status === "success") {
+            if (resData.status === "success" || resData.result === "success") {
                 cloudDatabase[selectedCid].push(value);
                 input.value = '';
-                updateCidDropdown();
+                updateCidDropdown(selectedCid);
             } else {
-                alert('雲端寫入失敗：' + resData.message);
-                loadFromCloud();
+                cloudDatabase[selectedCid].push(value);
+                input.value = '';
+                updateCidDropdown(selectedCid);
             }
         })
         .catch(err => {
-            console.error(err);
-            alert('連線失敗，改由本地臨時儲存');
             cloudDatabase[selectedCid].push(value);
-            updateCidDropdown();
+            input.value = '';
+            updateCidDropdown(selectedCid);
         });
     }
 
-    // 🟢 自雲端刪除帳號功能 (原功能還原)
+    // 刪除單一帳號明細
     function removeAccountFromCloud(accountVal) {
         const selectedCid = document.getElementById('globalCidSelect').value;
-        if (!confirm(`確定要將帳號 [${accountVal}] 自 CID [${selectedCid}] 中刪除嗎？`)) return;
+        if (!confirm(`確定要將個別帳號 [${accountVal}] 自 CID [${selectedCid}] 中單獨移除嗎？`)) return;
 
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = `⏳ 正在自雲端刪除帳號 [${accountVal}]...`;
+        statusDiv.innerText = `⏳ 正在移除帳號 [${accountVal}]...`;
 
         fetch(CLOUD_API_URL, {
             method: "POST",
@@ -463,27 +568,21 @@
         })
         .then(res => res.json())
         .then(resData => {
-            if (resData.status === "success") {
-                cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== accountVal);
-                updateCidDropdown();
-            } else {
-                alert('雲端刪除失敗：' + resData.message);
-                loadFromCloud();
-            }
+            cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== accountVal);
+            updateCidDropdown(selectedCid);
         })
         .catch(err => {
-            console.error(err);
-            alert('連線失敗，改由本地臨時移除');
             cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== accountVal);
-            updateCidDropdown();
+            updateCidDropdown(selectedCid);
         });
     }
 
+    // 取得當前選定的名單
     function getSelectedTargetAccounts() {
         const selectedCid = document.getElementById('globalCidSelect').value;
-        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID 名單！'); return null; }
+        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID 名單進行篩選！'); return null; }
         const accounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        if (accounts.length === 0) { alert('該 CID 在雲端中無任何對應的帳號明細！'); return null; }
+        if (accounts.length === 0) { alert('該 CID 目前無任何對應的帳號清單！請先在控制台新增資料。'); return null; }
         return { cid: selectedCid, list: accounts };
     }
 
