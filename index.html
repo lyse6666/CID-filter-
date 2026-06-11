@@ -332,7 +332,6 @@
 
     window.onload = function() { loadFromCloud(); };
 
-    // 100% 原始 GET 模式
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
@@ -371,7 +370,6 @@
         renderAccountTags();
     }
 
-    // 100% 還原最原始、絕不會漏檔與噴 CORS 的表單 POST 機制
     function createNewCidToCloud() {
         const input = document.getElementById('newCidInput');
         const cidValue = input.value.trim().toUpperCase();
@@ -425,10 +423,11 @@
                 cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== acc);
                 updateCidDropdown(selectedCid);
                 
+                // 🟢 完美還原原始欄位：名單移除使用 name 欄位
                 fetch(CLOUD_API_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: new URLSearchParams({ action: "remove", cid: selectedCid, account: acc })
+                    body: new URLSearchParams({ action: "remove", cid: selectedCid, name: acc })
                 }).catch(()=>{});
             };
             tag.appendChild(rm); container.appendChild(tag);
@@ -444,10 +443,11 @@
         input.value = '';
         updateCidDropdown(selectedCid);
         
+        // 🟢 核心修正：完美還原最原始、能與 GAS 後台完美對接的 name 欄位名稱
         fetch(CLOUD_API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ action: "add", cid: selectedCid, account: value })
+            body: new URLSearchParams({ action: "add", cid: selectedCid, name: value })
         }).catch(()=>{});
     }
 
@@ -488,7 +488,7 @@
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    // 🎯 功能二：多分頁獨立篩選 (🌟唯一加入過濾空分頁邏輯的地方🌟)
+    // 🎯 功能二：多分頁獨立篩選 (已整合過濾 0 筆空分頁邏輯)
     function startAllSheetsFiltering() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFileMultiFilter');
@@ -502,7 +502,7 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 currentWorkbook = XLSX.utils.book_new();
                 let summary = [];
-                let addedSheetsCount = 0; // 用來計算真正塞進去的分頁有多少個
+                let addedSheetsCount = 0;
 
                 workbook.SheetNames.forEach(name => {
                     const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
@@ -512,7 +512,7 @@
                         if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) filtered.push(rawRows[i]);
                     }
                     
-                    // 🌟 核心過濾改動：如果篩出來資料行數小於或等於 1 行 (代表只有表頭，內容 0 筆)，直接 return 跳過此頁，不寫入
+                    // 🌟 如果過濾完只有表頭（0 筆相符資料），直接跳過不寫入
                     if(filtered.length <= 1) {
                         return;
                     }
@@ -522,7 +522,6 @@
                     addedSheetsCount++;
                 });
 
-                // 如果全部的分頁撈完發現都是 0 筆，直接顯示警示
                 if (addedSheetsCount === 0) {
                     document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 該 Excel 所有分頁中，均無符合此 CID 的名單資料，已取消導出空檔。</div>`;
                     return;
@@ -601,7 +600,7 @@
                     currentWorkbook = XLSX.utils.book_new();
                     let summary = [];
                     Object.keys(store).forEach(sName => {
-                        // 🌟 這裡同步做優化：如果這個名稱的分頁在所有檔案加總過濾後依然是 0 筆，直接 return 棄用。
+                        // 🌟 如果跨檔加總合併後分頁依然沒有符合的資料，直接跳過不生成該分頁
                         if(store[sName].rows.length === 0) return;
 
                         let finalRows = [store[sName].header, ...store[sName].rows];
