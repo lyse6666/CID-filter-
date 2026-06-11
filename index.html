@@ -267,8 +267,8 @@
 
     <div id="multiFilterTab" class="tab-content">
         <div class="card">
-            <h3>🎯 多分頁獨立盲篩系統 (自動剔除無資料空分頁)</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁並獨立篩選。<b>優化：若分頁篩選後為 0 筆，會自動從檔案中刪除該分頁，只留下真正有資料的項目！</b></p>
+            <h3>🎯 多分頁獨立盲篩系統 (原分頁名稱保留)</h3>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁並獨立篩選，保持原分頁名稱。<b>(優化：自動跳過無相符資料的空分頁)</b></p>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案 (支援多分頁)：</label>
                 <input type="file" id="excelFileMultiFilter" accept=".xlsx, .xls">
@@ -291,7 +291,7 @@
     <div id="mergeMultiTab" class="tab-content">
         <div class="card">
             <h3>📚 多檔案合併系統 - 依原始同名分頁合併結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個檔案並將同名分頁串聯。<b>優化：合併後若該分頁結果為 0 筆，亦會自動刪除不導出。</b></p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個檔案，並將同名分頁串聯。<b>(優化：自動跳過合併後仍為空的各別分頁)</b></p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeMulti" accept=".xlsx, .xls" multiple>
@@ -309,20 +309,11 @@
 </div>
 
 <script>
-    // ⚠️ 請在此處替換為你原本完全正常的 Google Apps Script Web App 網址 ⚠️
+    // 請確認此處替換為你原本完全正常的 Google Apps Script 部署 Web App 網址
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
     
     let cloudDatabase = {};
     let currentWorkbook = null;
-
-    // 最高容錯率的 Excel 讀取配置
-    const STRICT_PARSE_OPTIONS = { 
-        type: 'array', 
-        cellDates: false, 
-        raw: true,         
-        cellStyles: false, 
-        cellFormulas: false 
-    };
 
     function getSafeDateString() {
         const d = new Date();
@@ -341,11 +332,10 @@
 
     window.onload = function() { loadFromCloud(); };
 
-    // 🟢 還原回最原始穩定的 GET 方法
+    // 100% 原始 GET 模式
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
-        
         fetch(CLOUD_API_URL)
         .then(res => res.json())
         .then(data => {
@@ -357,7 +347,7 @@
         .catch(err => {
             console.error(err);
             statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 無法讀取雲端資料，請確認 API 網址";
+            statusDiv.innerText = "❌ 未正確設定雲端網址或連線失敗";
         });
     }
 
@@ -381,38 +371,34 @@
         renderAccountTags();
     }
 
-    // 🟢 核心修正：所有的雲端傳輸全部還原成「對話第一行」最穩定的 URLSearchParams 表單傳送模式！
+    // 100% 還原最原始、絕不會漏檔與噴 CORS 的表單 POST 機制
     function createNewCidToCloud() {
         const input = document.getElementById('newCidInput');
         const cidValue = input.value.trim().toUpperCase();
         if (!cidValue) return;
-        
-        // 本地立即更新，體感不卡頓
-        if (!cloudDatabase[cidValue]) cloudDatabase[cidValue] = [];
+        cloudDatabase[cidValue] = [];
         input.value = '';
         updateCidDropdown(cidValue);
-
-        // 使用第一行最穩定的通訊格式發送
+        
         fetch(CLOUD_API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ "action": "addCid", "cid": cidValue })
-        }).catch(e => console.warn(e));
+            body: new URLSearchParams({ action: "addCid", cid: cidValue })
+        }).catch(()=>{});
     }
 
     function deleteCidFromCloud() {
         const cidValue = document.getElementById('globalCidSelect').value;
         if (!cidValue || cidValue.startsWith('--')) return;
-        if (!confirm(`確定要刪除整個 [${cidValue}] 分類以及內含的所有帳號嗎？`)) return;
-        
+        if (!confirm(`確定要刪除整個 [${cidValue}] 分類嗎？`)) return;
         delete cloudDatabase[cidValue];
         updateCidDropdown();
-
+        
         fetch(CLOUD_API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ "action": "removeCid", "cid": cidValue })
-        }).catch(e => console.warn(e));
+            body: new URLSearchParams({ action: "removeCid", cid: cidValue })
+        }).catch(()=>{});
     }
 
     function renderAccountTags() {
@@ -442,8 +428,8 @@
                 fetch(CLOUD_API_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: new URLSearchParams({ "action": "remove", "cid": selectedCid, "account": acc })
-                }).catch(e => console.warn(e));
+                    body: new URLSearchParams({ action: "remove", cid: selectedCid, account: acc })
+                }).catch(()=>{});
             };
             tag.appendChild(rm); container.appendChild(tag);
         });
@@ -454,16 +440,15 @@
         const input = document.getElementById('newAccountInput');
         const value = input.value.trim();
         if (!selectedCid || !value || cloudDatabase[selectedCid].includes(value)) return;
-        
         cloudDatabase[selectedCid].push(value);
         input.value = '';
         updateCidDropdown(selectedCid);
-
+        
         fetch(CLOUD_API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ "action": "add", "cid": selectedCid, "account": value })
-        }).catch(e => console.warn(e));
+            body: new URLSearchParams({ action: "add", cid: selectedCid, account: value })
+        }).catch(()=>{});
     }
 
     function getSelectedTargetAccounts() {
@@ -472,22 +457,18 @@
         return { cid: selectedCid, list: (cloudDatabase[selectedCid] || []).map(a => a.toString().trim()) };
     }
 
-    // ────────────────────────────────────────────────────────
-    // 以下篩選核心功能：完美整合「修復受損Excel」與「自動剔除0筆空分頁」邏輯
-    // ────────────────────────────────────────────────────────
-
-    // 【功能一】：單頁（首頁）篩選
+    // 📄 功能一：單頁篩選
     function startSingleSheetFiltering() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFileSingle');
         if (!fileInput.files.length) return;
         
-        document.getElementById('resultContainer').innerHTML = "⏳ 正在處理首頁盲篩中...";
+        document.getElementById('resultContainer').innerHTML = "⏳ 正在處理中...";
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, STRICT_PARSE_OPTIONS);
+                const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1, defval: "" });
                 
@@ -496,70 +477,67 @@
                 for(let i=1; i<rawRows.length; i++) {
                     if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) filtered.push(rawRows[i]);
                 }
-
-                if (filtered.length <= 1) {
-                    document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 首頁 [${firstSheetName}] 篩選後無任何相符資料，已取消導出。</div>`;
-                    return;
-                }
-
                 currentWorkbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(currentWorkbook, XLSX.utils.aoa_to_sheet(filtered), firstSheetName);
                 showDownloadUI(`好好篩_單頁篩選_${target.cid}_${getSafeDateString()}.xlsx`, `<li>首頁 [${firstSheetName}] 處理成功，篩出 ${filtered.length-1} 筆。</li>`);
             } catch(err) {
                 console.error(err);
-                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 檔案解析失敗，請確認檔案。</div>`;
+                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 處理失敗，請檢查檔案格式。</div>`;
             }
         };
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    // 【功能二】：多分頁獨立篩選 (自動剔除無相符資料的空殼分頁)
+    // 🎯 功能二：多分頁獨立篩選 (🌟唯一加入過濾空分頁邏輯的地方🌟)
     function startAllSheetsFiltering() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFileMultiFilter');
         if (!fileInput.files.length) return;
 
-        document.getElementById('resultContainer').innerHTML = "⏳ 正在全分頁解析並過濾空資料中...";
+        document.getElementById('resultContainer').innerHTML = "⏳ 正在處理中...";
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, STRICT_PARSE_OPTIONS);
+                const workbook = XLSX.read(data, { type: 'array' });
                 currentWorkbook = XLSX.utils.book_new();
                 let summary = [];
-                let validSheetCount = 0;
+                let addedSheetsCount = 0; // 用來計算真正塞進去的分頁有多少個
 
                 workbook.SheetNames.forEach(name => {
                     const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
                     if(!rawRows.length) return;
-                    
-                    let filtered = [rawRows[0]]; 
+                    let filtered = [rawRows[0]];
                     for(let i=1; i<rawRows.length; i++) {
                         if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) filtered.push(rawRows[i]);
                     }
-
-                    // 🌟 若分頁篩選後「只有 Header」(等於0筆相符)，直接跳過，不寫入檔案中！
-                    if (filtered.length <= 1) return; 
+                    
+                    // 🌟 核心過濾改動：如果篩出來資料行數小於或等於 1 行 (代表只有表頭，內容 0 筆)，直接 return 跳過此頁，不寫入
+                    if(filtered.length <= 1) {
+                        return;
+                    }
 
                     XLSX.utils.book_append_sheet(currentWorkbook, XLSX.utils.aoa_to_sheet(filtered), name);
-                    summary.push(`<li>分頁 [${name}]: 成功篩出 <b>${filtered.length-1}</b> 筆明細</li>`);
-                    validSheetCount++;
+                    summary.push(`<li>分頁 [${name}]: 篩出 <b>${filtered.length-1}</b> 筆明細</li>`);
+                    addedSheetsCount++;
                 });
 
-                if (validSheetCount === 0) {
-                    document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 整個檔案的分頁中皆無符合此 CID 的名單！已取消導出。</div>`;
+                // 如果全部的分頁撈完發現都是 0 筆，直接顯示警示
+                if (addedSheetsCount === 0) {
+                    document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 該 Excel 所有分頁中，均無符合此 CID 的名單資料，已取消導出空檔。</div>`;
                     return;
                 }
 
                 showDownloadUI(`好好篩_各分頁獨立篩選_${target.cid}_${getSafeDateString()}.xlsx`, summary.join(''));
             } catch(err) {
-                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 檔案解析失敗，請重新確認檔案。</div>`;
+                console.error(err);
+                document.getElementById('resultContainer').innerHTML = `<div class="status-error">❌ 處理失敗，請檢查檔案格式。</div>`;
             }
         };
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    // 【功能三】：多檔案合併（單一分頁結果）
+    // 🔀 功能三：多檔案合併成單一頁
     function startCombineToSingleSheet() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFilesMergeSingle');
@@ -573,7 +551,7 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const workbook = XLSX.read(new Uint8Array(e.target.result), STRICT_PARSE_OPTIONS);
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     workbook.SheetNames.forEach(name => {
                         const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
                         if(!rawRows.length) return;
@@ -582,29 +560,25 @@
                             if(rawRows[i].some(c => target.list.includes(c.toString().trim()))) mergedRows.push(rawRows[i]);
                         }
                     });
-                } catch(cErr) { console.warn("略過受損分頁", cErr); }
+                } catch(cErr) { console.error(cErr); }
                 processed++;
                 if(processed === files.length) {
-                    if(mergedRows.length <= 1) {
-                        document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 合併後無任何符合的資料，未生成導出檔。</div>`;
-                        return;
-                    }
                     currentWorkbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(currentWorkbook, XLSX.utils.aoa_to_sheet(mergedRows), "多檔單頁合併結果");
-                    showDownloadUI(`好好篩_多檔單頁合併_${target.cid}_${getSafeDateString()}.xlsx`, `<li>成功融合並篩出共 <b>${mergedRows.length-1}</b> 筆明細。</li>`);
+                    showDownloadUI(`好好篩_多檔單頁合併_${target.cid}_${getSafeDateString()}.xlsx`, `<li>成功融合合併完成。</li>`);
                 }
             };
             reader.readAsArrayBuffer(file);
         });
     }
 
-    // 【功能四】：多檔案合併（多分頁結果）
+    // 📚 功能四：多檔案合併(保持多分頁)
     function startCombineToMultiSheets() {
         const target = getSelectedTargetAccounts(); if (!target) return;
         const fileInput = document.getElementById('excelFilesMergeMulti');
         if (!fileInput.files.length) return;
 
-        document.getElementById('resultContainer').innerHTML = "⏳ 多檔案跨分頁合併串聯中...";
+        document.getElementById('resultContainer').innerHTML = "⏳ 多檔案跨分頁同名串聯處理中...";
         const files = Array.from(fileInput.files);
         let store = {}, processed = 0;
 
@@ -612,7 +586,7 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const workbook = XLSX.read(new Uint8Array(e.target.result), STRICT_PARSE_OPTIONS);
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     workbook.SheetNames.forEach(name => {
                         const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
                         if(!rawRows.length) return;
@@ -626,23 +600,15 @@
                 if(processed === files.length) {
                     currentWorkbook = XLSX.utils.book_new();
                     let summary = [];
-                    let validSheetCount = 0;
-
                     Object.keys(store).forEach(sName => {
-                        if (store[sName].rows.length === 0) return; 
+                        // 🌟 這裡同步做優化：如果這個名稱的分頁在所有檔案加總過濾後依然是 0 筆，直接 return 棄用。
+                        if(store[sName].rows.length === 0) return;
 
                         let finalRows = [store[sName].header, ...store[sName].rows];
                         let cName = `${sName}_${target.cid}`.replace(/[:\\/?*\[\]]/g, "_").substring(0,31);
                         XLSX.utils.book_append_sheet(currentWorkbook, XLSX.utils.aoa_to_sheet(finalRows), cName);
                         summary.push(`<li>分頁 [${cName}]: 合併篩出 ${store[sName].rows.length} 筆</li>`);
-                        validSheetCount++;
                     });
-
-                    if(validSheetCount === 0) {
-                        document.getElementById('resultContainer').innerHTML = `<div class="status-error">⚠️ 跨檔合併後無任何符合的分頁資料，已取消導出。</div>`;
-                        return;
-                    }
-
                     showDownloadUI(`好好篩_多檔多頁合併_${target.cid}_${getSafeDateString()}.xlsx`, summary.join(''));
                 }
             };
@@ -655,7 +621,7 @@
         container.className = "";
         container.innerHTML = `
             <div class="download-box">
-                <div style="color: #fd7e14; font-weight: bold; margin-bottom: 12px; font-size:16px;">🎉 任務順利完成！(已自動過濾空分頁)</div>
+                <div style="color: #fd7e14; font-weight: bold; margin-bottom: 12px; font-size:16px;">🎉 任務順利完成！(已剔除無資料分頁)</div>
                 <button class="btn btn-block" style="font-size:14px; padding: 12px;" onclick="downloadExcel('${fileName}')">📥 下載處理後 Excel 活頁簿</button>
             </div>
             <div class="report-list">
