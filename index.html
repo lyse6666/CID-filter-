@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好好篩 - 綜合資料處理系統</title>
+    <title>好好篩 - 綜合資料處理與 CID 管理系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
@@ -23,13 +23,8 @@
             font-size: 28px;
             font-weight: bold;
         }
-        .header p {
-            color: #666;
-            margin: 0;
-            font-size: 14px;
-        }
         .container {
-            max-width: 800px;
+            max-width: 850px;
             margin: auto;
         }
         
@@ -96,7 +91,7 @@
             margin-bottom: 8px;
             color: #495057;
         }
-        select, input[type="file"] {
+        select, input[type="text"], input[type="file"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #ced4da;
@@ -110,7 +105,6 @@
             cursor: pointer;
         }
         .btn {
-            width: 100%;
             padding: 14px;
             border: none;
             border-radius: 6px;
@@ -121,9 +115,48 @@
             color: white;
             background-color: #fd7e14;
         }
-        .btn:hover {
-            background-color: #e0630d;
+        .btn:hover { background-color: #e0630d; }
+        .btn-block { width: 100%; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #bd2130; }
+
+        /* 核心管理介面區域與細項列表 */
+        .management-box {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
         }
+        .account-tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+        }
+        .account-tag {
+            background-color: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .account-tag .remove-btn {
+            color: #dc3545;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
         .status-text {
             font-size: 14px;
             font-weight: bold;
@@ -156,13 +189,8 @@
             border: 1px solid #dee2e6;
             margin-top: 15px;
         }
-        .report-list ul {
-            margin: 5px 0 0 0;
-            padding-left: 20px;
-        }
-        .report-list li {
-            margin-bottom: 5px;
-        }
+        .report-list ul { margin: 5px 0 0 0; padding-left: 20px; }
+        .report-list li { margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -174,6 +202,31 @@
 
 <div class="container">
     
+    <div class="card" style="background: #fffdfb; border: 1px solid #ffe8d6;">
+        <h3 style="color: #e0630d;">🛠️ 雲端 CID 名單資料庫管理</h3>
+        
+        <div class="form-group">
+            <label>1. 請選取要檢視或編輯的目標 CID：</label>
+            <select id="globalCidSelect" onchange="renderAccountTags()">
+                <option>-- 正在載入雲端選單 --</option>
+            </select>
+        </div>
+
+        <div class="management-box">
+            <div style="font-weight: bold; font-size: 14px; color:#495057; margin-bottom: 10px;">
+                📋 目前名單內含帳號 (<span id="tagCount">0</span> 筆)：
+            </div>
+            <div id="accountTagContainer" class="account-tag-container">
+                <span style="color:#888; font-size:13px;">請先選擇上方有效的 CID 名單</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <input type="text" id="newAccountInput" placeholder="請輸入欲新增的帳號名稱">
+                <button class="btn btn-secondary" style="padding:0 20px; white-space:nowrap;" onclick="addAccountToCloud()">➕ 新增帳號</button>
+            </div>
+        </div>
+    </div>
+
     <div class="tab-container">
         <button class="tab-btn active" onclick="switchTab('singleTab', this)">📄 1. 單頁(首頁)篩選</button>
         <button class="tab-btn" onclick="switchTab('multiFilterTab', this)">🎯 2. 多分頁獨立篩選</button>
@@ -181,67 +234,58 @@
         <button class="tab-btn" onclick="switchTab('mergeMultiTab', this)">📚 4. 多檔案合併(多分頁)</button>
     </div>
 
-    <div class="card" style="padding: 15px 25px; margin-bottom: 15px; background: #fffdfb; border: 1px solid #ffe8d6;">
-        <div class="form-group" style="margin-bottom: 0;">
-            <label style="color: #e0630d;">🎯 篩選依據：所有功能皆會依照此選定的 CID 名單進行資料列搜尋</label>
-            <select id="globalCidSelect" class="cidSelectClass">
-                <option>-- 正在載入雲端選單 --</option>
-            </select>
-        </div>
-    </div>
-
     <div id="singleTab" class="tab-content active">
         <div class="card">
             <h3>📄 單頁（首頁）盲篩系統</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁（首頁），依 CID 名單進行搜尋，分頁名稱維持原首頁名稱。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：只讀取單一 Excel 的第一個分頁（首頁），依 CID 名單做帳號比對搜尋，分頁名稱維持原樣。</p>
             <div class="form-group">
                 <label>選擇原始 Excel 檔案：</label>
                 <input type="file" id="excelFileSingle" accept=".xlsx, .xls">
             </div>
-            <button class="btn" onclick="startSingleSheetFiltering()">執行單頁盲篩匯出</button>
+            <button class="btn btn-block" onclick="startSingleSheetFiltering()">執行單頁盲篩匯出</button>
         </div>
     </div>
 
     <div id="multiFilterTab" class="tab-content">
         <div class="card">
             <h3>🎯 多分頁獨立盲篩系統 (原分頁名稱保留)</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁，依 CID 名單進行搜尋。匯出時保留所有分頁，且<b>「分頁名稱原封不動、完全同原始檔」</b>。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：讀取單一 Excel 的所有分頁，各分頁用選定的 CID 名單盲篩。匯出時分頁全數保留且<b>名稱與原始檔完全相同</b>。</p>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案 (支援多分頁)：</label>
                 <input type="file" id="excelFileMultiFilter" accept=".xlsx, .xls">
             </div>
-            <button class="btn" onclick="startAllSheetsFiltering()">執行全分頁同步盲篩匯出</button>
+            <button class="btn btn-block" onclick="startAllSheetsFiltering()">執行全分頁同步盲篩匯出</button>
         </div>
     </div>
 
     <div id="mergeSingleTab" class="tab-content">
         <div class="card">
             <h3>🔀 多檔案合併系統 - 導出為單一分頁結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依 CID 名單搜尋所有資料，最終將符合的所有結果合併揉成「一個綜合分頁（名為：多檔單頁合併結果）」導出。</p>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 名單抓取所有符合資料，並揉合進一個叫「多檔單頁合併結果」的單一分頁導出。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeSingle" accept=".xlsx, .xls" multiple>
             </div>
-            <button class="btn" onclick="startCombineToSingleSheet()">執行多檔合併為單頁並導出</button>
+            <button class="btn btn-block" onclick="startCombineToSingleSheet()">執行多檔合併為單頁並導出</button>
         </div>
     </div>
 
     <div id="mergeMultiTab" class="tab-content">
         <div class="card">
-            <h3>📚 多檔案合併系統 - 依同名分頁歸類合併結果</h3>
-            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依 CID 名單搜尋各檔資料，並將原始同名的分頁串聯在一起，分頁更名為<b>「[原分頁名稱]_[CID名稱]」</b>（例：右圖效果）。</p>
+            <h3>📚 多檔案合併系統 - 依原始同名分頁合併結果</h3>
+            <p style="color: #666; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">說明：上傳多個 Excel 檔案，依選定 CID 名單搜尋各檔資料，並將原檔中名字相同的分頁串聯合併，分頁命名為「[原分頁名]_[CID名]」。</p>
             <div class="form-group">
                 <label>選取多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="excelFilesMergeMulti" accept=".xlsx, .xls" multiple>
             </div>
-            <button class="btn" onclick="startCombineToMultiSheets()">執行多檔同名分頁合併並導出</button>
+            <button class="btn btn-block" onclick="startCombineToMultiSheets()">執行多檔同名分頁合併並導出</button>
         </div>
     </div>
 
     <div class="card">
         <h3>📊 執行結果與下載區</h3>
         <div id="resultContainer" class="result-placeholder">
-            請選擇 CID 並上傳對應檔案，再點擊對應按鈕執行。
+            請選擇上方管理區之 CID 並上傳對應檔案，再點擊功能按鈕執行。
         </div>
     </div>
 </div>
@@ -268,7 +312,7 @@
         
         const resultContainer = document.getElementById('resultContainer');
         resultContainer.className = "result-placeholder";
-        resultContainer.innerHTML = "請選擇 CID 並上傳對應檔案，再點擊上方按鈕執行。";
+        resultContainer.innerHTML = "請上傳對應檔案，再點擊下方按鈕執行。";
         currentWorkbook = null;
     }
 
@@ -276,6 +320,7 @@
         loadFromCloud();
     };
 
+    // 讀取雲端資料庫
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
@@ -298,6 +343,7 @@
 
     function updateCidDropdown() {
         const select = document.getElementById('globalCidSelect');
+        const prevValue = select.value;
         const cids = Object.keys(cloudDatabase);
         select.innerHTML = '';
 
@@ -314,6 +360,123 @@
             opt.text = `${cid} (${cloudDatabase[cid].length || 0} 筆帳號)`;
             select.appendChild(opt);
         });
+
+        if (cids.includes(prevValue)) {
+            select.value = prevValue;
+        }
+        renderAccountTags();
+    }
+
+    // 🟢 渲染帳號清單與刪除按鈕 (原功能還原)
+    function renderAccountTags() {
+        const select = document.getElementById('globalCidSelect');
+        const container = document.getElementById('accountTagContainer');
+        const countSpan = document.getElementById('tagCount');
+        const selectedCid = select.value;
+
+        if (!selectedCid || selectedCid.startsWith('--') || !cloudDatabase[selectedCid]) {
+            container.innerHTML = '<span style="color:#888; font-size:13px;">請先選擇上方有效的 CID 名單</span>';
+            countSpan.innerText = "0";
+            return;
+        }
+
+        const accounts = cloudDatabase[selectedCid];
+        countSpan.innerText = accounts.length;
+
+        if (accounts.length === 0) {
+            container.innerHTML = '<span style="color:#888; font-size:13px;">⚠️ 目前此 CID 內無任何帳號資料</span>';
+            return;
+        }
+
+        container.innerHTML = '';
+        accounts.forEach(acc => {
+            const tag = document.createElement('span');
+            tag.className = 'account-tag';
+            tag.innerText = acc;
+
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerText = '×';
+            removeBtn.onclick = function() { removeAccountFromCloud(acc); };
+
+            tag.appendChild(removeBtn);
+            container.appendChild(tag);
+        });
+    }
+
+    // 🟢 新增帳號到雲端功能 (原功能還原)
+    function addAccountToCloud() {
+        const selectedCid = document.getElementById('globalCidSelect').value;
+        const input = document.getElementById('newAccountInput');
+        const value = input.value.trim();
+
+        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID 名單！'); return; }
+        if (!value) { alert('請輸入帳號名稱！'); return; }
+
+        if (cloudDatabase[selectedCid].includes(value)) {
+            alert('此帳號已存在於該名單中！');
+            return;
+        }
+
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = `⏳ 正在新增帳號 [${value}] 到雲端...`;
+
+        // POST 到 Google Apps Script
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            redirect: "follow",
+            body: JSON.stringify({ action: "add", cid: selectedCid, account: value })
+        })
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.status === "success") {
+                cloudDatabase[selectedCid].push(value);
+                input.value = '';
+                updateCidDropdown();
+            } else {
+                alert('雲端寫入失敗：' + resData.message);
+                loadFromCloud();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('連線失敗，改由本地臨時儲存');
+            cloudDatabase[selectedCid].push(value);
+            updateCidDropdown();
+        });
+    }
+
+    // 🟢 自雲端刪除帳號功能 (原功能還原)
+    function removeAccountFromCloud(accountVal) {
+        const selectedCid = document.getElementById('globalCidSelect').value;
+        if (!confirm(`確定要將帳號 [${accountVal}] 自 CID [${selectedCid}] 中刪除嗎？`)) return;
+
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = `⏳ 正在自雲端刪除帳號 [${accountVal}]...`;
+
+        fetch(CLOUD_API_URL, {
+            method: "POST",
+            redirect: "follow",
+            body: JSON.stringify({ action: "remove", cid: selectedCid, account: accountVal })
+        })
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.status === "success") {
+                cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== accountVal);
+                updateCidDropdown();
+            } else {
+                alert('雲端刪除失敗：' + resData.message);
+                loadFromCloud();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('連線失敗，改由本地臨時移除');
+            cloudDatabase[selectedCid] = cloudDatabase[selectedCid].filter(a => a !== accountVal);
+            updateCidDropdown();
+        });
     }
 
     function getSelectedTargetAccounts() {
@@ -325,7 +488,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能一】：單頁（首頁）篩選 (分頁名稱維持原樣)
+    // 【功能一】：單頁（首頁）篩選
     // ────────────────────────────────────────────────────────
     function startSingleSheetFiltering() {
         const target = getSelectedTargetAccounts();
@@ -365,7 +528,7 @@
 
                 currentWorkbook = XLSX.utils.book_new();
                 const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
-                XLSX.utils.book_append_sheet(currentWorkbook, newSheet, firstSheetName); // 沿用原本首頁分頁名稱
+                XLSX.utils.book_append_sheet(currentWorkbook, newSheet, firstSheetName);
 
                 showDownloadUI(`好好篩_單頁篩選_${target.cid}_${getSafeDateString()}.xlsx`, `<li>首頁【${firstSheetName}】篩選完成，共篩出 <b>${matchedCount}</b> 筆帳號明細。</li>`);
             } catch (err) {
@@ -377,7 +540,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能二】：多分頁篩選（分頁名稱原封不動完全保留）
+    // 【功能二】：多分頁篩選（分頁名稱如原檔案）
     // ────────────────────────────────────────────────────────
     function startAllSheetsFiltering() {
         const target = getSelectedTargetAccounts();
@@ -417,7 +580,6 @@
                         if (hasMatch) filteredRows.push(row);
                     }
 
-                    // 🎯 這裡只做純篩選：分頁名稱原封不動照舊（同左兩圖一樣）
                     const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
                     XLSX.utils.book_append_sheet(currentWorkbook, newSheet, sheetName);
                     summaryInfo.push(`<li>分頁【${sheetName}】: 成功篩選出 <b>${filteredRows.length - 1}</b> 筆帳號明細</li>`);
@@ -494,7 +656,7 @@
     }
 
     // ────────────────────────────────────────────────────────
-    // 【功能四】：多檔案合併（多分頁 - 依同名分頁歸類合併，分頁更名為右圖結構）
+    // 【功能四】：多檔案合併（多分頁結果）
     // ────────────────────────────────────────────────────────
     function startCombineToMultiSheets() {
         const target = getSelectedTargetAccounts();
@@ -544,7 +706,6 @@
                             const sStore = sheetsDataStore[sName];
                             let finalSheetRows = [sStore.header, ...sStore.rows];
                             
-                            // 🎯 這裡實現右圖需求：[原分頁名稱]_[CID名稱]
                             let combinedSheetName = `${sName}_${target.cid}`;
                             combinedSheetName = combinedSheetName.replace(/[:\\/?*\[\]]/g, "_").trim();
                             if (combinedSheetName.length > 31) combinedSheetName = combinedSheetName.substring(0, 31);
@@ -569,7 +730,7 @@
         const resultContainer = document.getElementById('resultContainer');
         let html = `<div class="download-box">`;
         html += `<div style="color: #fd7e14; font-weight: bold; margin-bottom: 12px; font-size:16px;">🎉 任務處理完成！</div>`;
-        html += `<button class="btn" style="font-size:14px; padding: 12px;" onclick="downloadExcel('${fileName}')">📥 下載處理後 Excel 活頁簿</button>`;
+        html += `<button class="btn btn-block" style="font-size:14px; padding: 12px;" onclick="downloadExcel('${fileName}')">📥 下載處理後 Excel 活頁簿</button>`;
         html += `</div>`;
         html += `<div class="report-list">`;
         html += `<p style="font-weight:bold; margin:0; color:#495057;">任務明細報告：</p><ul>`;
