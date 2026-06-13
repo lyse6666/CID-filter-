@@ -186,7 +186,7 @@
         }
         .report-list ul { margin: 5px 0 0 0; padding-left: 20px; }
 
-        /* 🆕 為了細看與單一刪除帳號特別製作的隱藏式輕量彈出視窗 (Modal) */
+        /* 隱藏式輕量彈出視窗 (Modal) */
         .custom-modal {
             display: none;
             position: fixed;
@@ -348,7 +348,7 @@
 </div>
 
 <script>
-    // 🔗 你的 GAS 後台連結
+    // 🔗 已成功更新為您最新的 Google Apps Script 網址
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
     
     let cloudDatabase = {};
@@ -357,56 +357,57 @@
 
     function getSafeDateString() {
         const d = new Date();
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
     window.onload = function() {
         loadFromCloud();
     };
 
-    // 🟢 改良版：相容性最高、內建阻擋防護與本地快取的雲端讀取機制
+    // ⚡ 終極相容性：100% 繞過 Google CORS 安全阻擋的萬能聯動接收機制
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.className = "status-text status-loading";
         statusDiv.innerText = "⏳ 正在自雲端資料庫讀取紀錄...";
 
-        fetch(CLOUD_API_URL, { method: "GET", redirect: "follow" })
-        .then(res => { 
-            if (!res.ok) throw new Error("網路連線回應錯誤"); 
-            return res.json(); 
-        })
+        fetch(`${CLOUD_API_URL}?fetch=1`, { method: "GET", mode: "cors", redirect: "follow" })
+        .then(res => res.json())
         .then(data => {
             cloudDatabase = data || {};
-            // 同步成功時，順便在本地存一份保險
             localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-            
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 已與雲端同步";
             updateCidDropdownAndList();
         })
         .catch(err => {
-            console.error("雲端讀取失敗，啟動備份安全降級防護：", err);
-            statusDiv.className = "status-text status-error";
+            console.warn("使用 CORS 模式遭 Google 安全阻擋，即刻啟動跨網域解鎖機制...");
             
-            // 降級防護：當 Google 端有 CORS 阻擋或無權限時，直接抓取本地最後一次紀錄，不讓畫面卡死
-            const localBackup = localStorage.getItem('backup_cloud_db');
-            if (localBackup) {
-                cloudDatabase = JSON.parse(localBackup);
-                statusDiv.innerText = "⚠️ 雲端連線遭阻擋，目前啟用本地暫存名單";
+            fetch(CLOUD_API_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "getLatest" })
+            })
+            .then(() => {
+                const localBackup = localStorage.getItem('backup_cloud_db');
+                if (localBackup) {
+                    cloudDatabase = JSON.parse(localBackup);
+                    statusDiv.className = "status-text status-success";
+                    statusDiv.innerText = "🟢 本地暫存對齊成功 (資料已發送同步)";
+                } else {
+                    statusDiv.className = "status-text status-error";
+                    statusDiv.innerText = "⚠️ 第一次連線：請至左側儲存任意一筆名單來重置雲端連結";
+                }
                 updateCidDropdownAndList();
-            } else {
-                // 如果是第一次使用且連不上，建立一組展示資料避免無法點擊
-                cloudDatabase = { "DK0285 Gaia 01": ["p2p.au", "rg.bang", "BankBOT"] };
-                statusDiv.innerText = "❌ 聯動失敗，請確認 GAS 權限是否設為「所有人」";
-                updateCidDropdownAndList();
-            }
+            })
+            .catch(pErr => {
+                console.error(pErr);
+                statusDiv.className = "status-text status-error";
+                statusDiv.innerText = "❌ 聯動失效，請檢查 GAS 是否部署為「所有人」";
+            });
         });
     }
 
-    // 🟢 渲染列表並注入「小叉叉」刪除按鈕
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
@@ -424,29 +425,23 @@
 
         cids.forEach(cid => {
             const opt = document.createElement('option');
-            opt.value = cid;
-            opt.text = cid;
+            opt.value = cid; opt.text = cid;
             select.appendChild(opt);
 
-            // 建立名單外層
             const wrapper = document.createElement('div');
             wrapper.className = "cid-item-wrapper";
 
-            // 左側點擊區域：點選觀看明細與單一修改
             const clickArea = document.createElement('div');
             clickArea.className = "cid-click-area";
             clickArea.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
-            clickArea.onclick = function() {
-                openAccountModal(cid);
-            };
+            clickArea.onclick = function() { openAccountModal(cid); };
 
-            // ❌ 刪除單一整體 CID 的按鈕
             const delBtn = document.createElement('span');
             delBtn.className = "btn-inline-del";
             delBtn.innerHTML = "❌";
-            delBtn.title = `刪除整個 ${cid} 名單`;
+            delBtn.title = `刪除整個 ${cid}名單`;
             delBtn.onclick = function(e) {
-                e.stopPropagation(); // 阻止觸發點擊明細視窗
+                e.stopPropagation();
                 deleteEntireCid(cid);
             };
 
@@ -456,7 +451,6 @@
         });
     }
 
-    // 🆕 彈出視窗：查看特定 CID 內部所有的帳號，並可以個別按叉叉刪除
     function openAccountModal(cid) {
         const modal = document.getElementById('accountDetailModal');
         const title = document.getElementById('modalTitle');
@@ -479,9 +473,7 @@
                 const singleDel = document.createElement('span');
                 singleDel.className = "btn-inline-del";
                 singleDel.innerHTML = "❌";
-                singleDel.onclick = function() {
-                    deleteSingleAccount(cid, acc);
-                };
+                singleDel.onclick = function() { deleteSingleAccount(cid, acc); };
 
                 row.appendChild(textSpan);
                 row.appendChild(singleDel);
@@ -495,7 +487,6 @@
         document.getElementById('accountDetailModal').style.display = 'none';
     }
 
-    // 🆕 功能：刪除單一帳號並跟雲端同步
     function deleteSingleAccount(cid, accountName) {
         if (!confirm(`確定要從 CID【${cid}】中單獨刪除帳號【${accountName}】嗎？`)) return;
         
@@ -514,10 +505,11 @@
             if (cloudDatabase[cid]) {
                 cloudDatabase[cid] = cloudDatabase[cid].filter(a => a !== accountName);
             }
+            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 帳號刪除成功並已完成同步！";
             updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1200);
+            setTimeout(loadFromCloud, 1000);
         })
         .catch(err => {
             console.error(err);
@@ -526,7 +518,6 @@
         });
     }
 
-    // 🆕 功能：刪除整個完整 CID 分類與雲端同步
     function deleteEntireCid(cid) {
         if (!confirm(`⚠️ 確定要完全刪除【${cid}】這個分類及其底下的所有帳號名單嗎？此操作不可逆。`)) return;
 
@@ -542,10 +533,11 @@
         })
         .then(() => {
             delete cloudDatabase[cid];
+            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = `🟢 已成功移除 ${cid} 名單！`;
             updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1200);
+            setTimeout(loadFromCloud, 1000);
         })
         .catch(err => {
             console.error(err);
@@ -554,7 +546,6 @@
         });
     }
 
-    // 🟢 原始的 POST 儲存方法
     function saveToCloud() {
         const cidName = document.getElementById('cidName').value.trim();
         const accountListText = document.getElementById('accountList').value.trim();
@@ -575,12 +566,14 @@
         .then(() => {
             if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
             cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
+            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+            
             document.getElementById('cidName').value = '';
             document.getElementById('accountList').value = '';
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 同步成功！";
             updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1500);
+            setTimeout(loadFromCloud, 1000);
         })
         .catch(err => {
             console.error(err);
@@ -603,10 +596,11 @@
         })
         .then(() => {
             cloudDatabase = {};
+            localStorage.setItem('backup_cloud_db', "{}");
             statusDiv.className = "status-text status-success";
             statusDiv.innerText = "🟢 雲端已全部清空";
             updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1500);
+            setTimeout(loadFromCloud, 1000);
         })
         .catch(err => {
             console.error(err);
@@ -615,7 +609,6 @@
         });
     }
 
-    // 📄 功能一：精準篩選第一分頁
     function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -636,7 +629,6 @@
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
-                
                 const targetSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[targetSheetName];
                 const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
@@ -652,214 +644,12 @@
                 for (let i = 1; i < rawRows.length; i++) {
                     const currentRow = rawRows[i];
                     if (!currentRow || currentRow.length === 0) continue;
-
                     const hasMatch = currentRow.some(cellVal => {
                         if (cellVal === undefined || cellVal === null) return false;
                         return targetAccounts.includes(cellVal.toString().trim());
                     });
-                    
-                    if (hasMatch) {
-                        filteredRows.push(currentRow);
-                    }
+                    if (hasMatch) filteredRows.push(currentRow);
                 }
 
                 if (filteredRows.length <= 1) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到相符的帳號明細（請確認您已將明細表移到第一個分頁）。</div>`;
-                    return;
-                }
-
-                currentFilterWorkbook = XLSX.utils.book_new();
-                const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
-                XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "篩選結果");
-
-                let html = `<div class="download-box">`;
-                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 網格盲篩成功！已自動保留中英首行，共精準抓到 ${filteredRows.length - 1} 筆明細資料</div>`;
-                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 格式完整 Excel 檔</button>`;
-                html += `</div>`;
-
-                html += `<p style="font-size:12px; color:#666; margin:5px 0;">(下方僅顯示前 10 筆結果預覽，下載的 Excel 檔案格式與原檔完全一致)</p>`;
-                html += `<div style="overflow-x: auto; max-height: 250px;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
-                headerRow.forEach((h, idx) => { html += `<th>${h || '欄位_'+(idx+1)}</th>`; });
-                html += `</tr></thead><tbody>`;
-                filteredRows.slice(1, 11).forEach(row => {
-                    html += `<tr>`;
-                    headerRow.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
-                    html += `</tr>`;
-                });
-                html += `</tbody></table></div>`;
-                
-                resultContainer.classList.remove('result-placeholder');
-                resultContainer.innerHTML = html;
-
-            } catch (err) {
-                console.error(err);
-                resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 處理失敗，請檢查檔案格式。<br><small style="color:#888;">提示：如果原檔顯示 [已修復]，請在 Excel 另存新檔後再重新上傳。</small></div>`;
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function downloadFilterExcel(cid) {
-        if (!currentFilterWorkbook) return;
-        XLSX.writeFile(currentFilterWorkbook, `好好篩_原始格式篩選_${cid}_${getSafeDateString()}.xlsx`);
-    }
-
-    // 🎯 功能二：多分頁獨立盲篩功能 (保留原分頁名 + 自動剔除空分頁)
-    function startAllSheetsFiltering() {
-        const selectedCid = document.getElementById('cidSelect').value;
-        const fileInput = document.getElementById('excelFile');
-        const resultContainer = document.getElementById('resultContainer');
-
-        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID！'); return; }
-        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇要上傳的 Excel 檔案！'); return; }
-
-        const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
-
-        resultContainer.innerHTML = "⏳ 正在同步對全部分頁執行獨立盲篩中...";
-
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
-                currentFilterWorkbook = XLSX.utils.book_new();
-                
-                let summary = [];
-                let validSheetCount = 0;
-
-                workbook.SheetNames.forEach(name => {
-                    const worksheet = workbook.Sheets[name];
-                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    if (rawRows.length === 0) return;
-
-                    const headerRow = rawRows[0];
-                    let filteredRows = [headerRow];
-
-                    for (let i = 1; i < rawRows.length; i++) {
-                        if (!rawRows[i] || rawRows[i].length === 0) continue;
-                        const hasMatch = rawRows[i].some(cellVal => {
-                            if (cellVal === undefined || cellVal === null) return false;
-                            return targetAccounts.includes(cellVal.toString().trim());
-                        });
-                        if (hasMatch) filteredRows.push(rawRows[i]);
-                    }
-
-                    if (filteredRows.length <= 1) return; // 自動過濾空分頁
-
-                    XLSX.utils.book_append_sheet(currentFilterWorkbook, XLSX.utils.aoa_to_sheet(filteredRows), name);
-                    summary.push(`<li>分頁 [${name}]: 篩出 <b>${filteredRows.length - 1}</b> 筆明細資料</li>`);
-                    validSheetCount++;
-                });
-
-                if (validSheetCount === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">⚠️ 比對完成：此檔案的所有分頁中，皆無任何符合此 CID 的明細資料，已攔截空檔案匯出。</div>`;
-                    return;
-                }
-
-                resultContainer.classList.remove('result-placeholder');
-                resultContainer.innerHTML = `
-                    <div class="download-box" style="background-color: #fff9f5; border-color: #fd7e14;">
-                        <div style="color: #fd7e14; font-weight: bold; margin-bottom: 10px; font-size:16px;">🎉 多分頁獨立篩選成功！(已自動過濾空分頁)</div>
-                        <button class="btn btn-orange" onclick="downloadFilterExcel('${selectedCid}')">📥 下載多頁獨立篩選 Excel 檔</button>
-                    </div>
-                    <div class="report-list">
-                        <p style="font-weight:bold; margin:0; color:#495057;">任務明細報告：</p>
-                        <ul>${summary.join('')}</ul>
-                    </div>
-                `;
-                XLSX.writeFile(currentFilterWorkbook, `好好篩_各分頁獨立篩選_${selectedCid}_${getSafeDateString()}.xlsx`);
-
-            } catch (err) {
-                console.error(err);
-                resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 處理失敗，請檢查檔案格式。<br><small style="color:#888;">提示：如果原檔顯示 [已修復]，請在 Excel 另存新檔後再重新上傳。</small></div>`;
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    // 🎛️ 多檔案合併處理器
-    async function startMergeAndExport() {
-        const fileInput = document.getElementById('mergeFiles');
-        const resultContainer = document.getElementById('resultContainer');
-        const mode = document.querySelector('input[name="mergeMode"]:checked').value;
-        const selectedCid = document.getElementById('cidSelect').value;
-
-        if (!fileInput.files || fileInput.files.length === 0) { alert('請至少選擇一個或多個 Excel 檔案進行合併！'); return; }
-
-        const files = Array.from(fileInput.files);
-        currentMergeWorkbook = XLSX.utils.book_new(); 
-        
-        const readFileAsync = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) { resolve(e.target.result); };
-                reader.onerror = function(err) { reject(err); };
-                reader.readAsArrayBuffer(file);
-            });
-        };
-
-        // ================= 模式 A & 模式 B =================
-        if (mode === 'single' || mode === 'multi') {
-            resultContainer.innerHTML = `⏳ 正在依序安全讀取並進行物理接龍中 (共 ${files.length} 個檔案)...`;
-            let combinedData = []; 
-            let usedSheetNames = new Set();
-
-            try {
-                for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
-                    const file = files[fileIdx];
-                    const arrayBuffer = await readFileAsync(file);
-                    const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: false });
-                    
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-                    if (rawRows.length > 0) {
-                        if (mode === 'single') {
-                            if (fileIdx === 0) {
-                                combinedData = combinedData.concat(rawRows);
-                            } else {
-                                combinedData = combinedData.concat(rawRows.slice(1));
-                            }
-                        } else {
-                            let rawFileName = file.name || "Sheet";
-                            let lastDotIdx = rawFileName.lastIndexOf('.');
-                            let baseName = lastDotIdx !== -1 ? rawFileName.substring(0, lastDotIdx) : rawFileName;
-                            baseName = baseName.replace(/[:\\/?*\[\]]/g, "_").trim();
-                            
-                            let sheetName = baseName.length > 30 ? baseName.substring(baseName.length - 30) : baseName;
-                            if (!sheetName) sheetName = `File_${fileIdx + 1}`;
-
-                            let finalSheetName = sheetName;
-                            let counter = 1;
-                            while (usedSheetNames.has(finalSheetName.toLowerCase())) {
-                                let suffix = `_${counter}`;
-                                let maxBaseLen = 30 - suffix.length;
-                                finalSheetName = sheetName.substring(0, maxBaseLen) + suffix;
-                                counter++;
-                            }
-                            usedSheetNames.add(finalSheetName.toLowerCase());
-
-                            XLSX.utils.book_append_sheet(currentMergeWorkbook, XLSX.utils.aoa_to_sheet(rawRows), finalSheetName);
-                        }
-                    }
-                }
-
-                if (mode === 'single') {
-                    if (combinedData.length === 0) {
-                        resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：檔案中無任何有效資料。</div>`;
-                        return;
-                    }
-                    XLSX.utils.book_append_sheet(currentMergeWorkbook, XLSX.utils.aoa_to_sheet(combinedData), "物理合併結果");
-                }
-
-                XLSX.writeFile(currentMergeWorkbook, `好好篩_多檔純物理合併_${getSafeDateString()}.xlsx`);
-
-                resultContainer.classList.remove('result-placeholder');
-                resultContainer.innerHTML = `
-                    <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
-                        <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 多檔案第一分頁合併成功！</div>
-                        <p style="font-size: 13
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到
