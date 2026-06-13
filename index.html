@@ -36,8 +36,8 @@
         .status-loading { color: #ffc107; }
         .list-container { margin-top: 15px; font-size: 14px; max-height: 220px; overflow-y: auto; }
         .result-placeholder { text-align: center; color: #888; padding: 30px 20px; font-size: 14px; }
-        .radio-group { display: flex; gap: 15px; margin-top: 5px; font-size: 14px; }
-        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; font-size: 14px; }
+        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .download-box { background-color: #e8f4fd; border: 2px dashed #007bff; border-radius: 6px; padding: 15px; text-align: center; }
         
         .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
@@ -99,19 +99,25 @@
         </div>
 
         <div class="card">
-            <h3>🗂️ Excel 多檔案合併工具 (輸出為大數據 CSV 格式)</h3>
+            <h3>🗂️ Excel 多檔案合併工具</h3>
             <div class="form-group">
                 <label>上傳多個 Excel 檔案 (可複選)：</label>
                 <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple>
             </div>
             <div class="form-group">
-                <label>匯出模式選擇：</label>
+                <label>合併模式選擇：</label>
                 <div class="radio-group">
-                    <input type="radio" id="modeAllSheets" name="mergeMode" value="all" checked>
-                    <label for="modeAllSheets"> 🚀 萬用模式：自動掃描並追加所有分頁（匯出 CSV）</label>
+                    <label>
+                        <input type="radio" id="modeSingle" name="mergeMode" value="single" checked>
+                        <span>模式 A：合併至單一分頁 (大數據優化 ➔ 匯出為 CSV)</span>
+                    </label>
+                    <label>
+                        <input type="radio" id="modeMulti" name="mergeMode" value="multi">
+                        <span>模式 B：一檔案一分頁 (極速防崩潰 ➔ 匯出為 Excel)</span>
+                    </label>
                 </div>
             </div>
-            <button class="btn btn-purple" onclick="startMergeAndExportToCSV()">建立合併並下載 CSV</button>
+            <button class="btn btn-purple" onclick="executeMergeTool()">開始建立合併並下載</button>
         </div>
 
         <div class="card">
@@ -363,43 +369,46 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (全工作表掃描進化版 ➔ 記憶體優化大數據 CSV 陣列串流) =================
-    async function startMergeAndExportToCSV() {
+    // ================= 功能二：總調度器 =================
+    function executeMergeTool() {
+        const isSingleMode = document.getElementById('modeSingle').checked;
+        if (isSingleMode) {
+            startMergeToSingleCSV(); // 模式 A：合併至單一分頁（轉 CSV 破百萬限制）
+        } else {
+            startMergeToMultiSheetsExcel(); // 模式 B：一檔案一分頁（維持 Excel，優化防崩潰）
+        }
+    }
+
+    // [模式 A] 合併至單一分頁（高效率全掃描 ➔ 匯出大數據不限行數 CSV）
+    async function startMergeToSingleCSV() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
-
         if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
 
         const files = Array.from(fileInput.files);
         let csvChunksArray = []; 
         let hasHeaderLoaded = false; 
 
-        const parseFileToCSVStreamAsync = (file, index) => {
+        const parseFileAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `📊 正在高效率自動掃描並抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
-                
+                resultContainer.innerHTML = `📊 [模式 A] 正在高速抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
                         let arrayBuffer = new Uint8Array(e.target.result);
-                        // 僅提取純文字，不載入樣式，極速快讀
                         let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
 
-                        // 遍歷該 Excel 檔案內的所有分頁
                         wb.SheetNames.forEach(sheetName => {
                             const sheet = wb.Sheets[sheetName];
                             if (!sheet || !sheet['!ref']) return; 
-
                             let csvChunk = XLSX.utils.sheet_to_csv(sheet, { FS: ",", RS: "\n" });
                             
                             if (csvChunk && csvChunk.trim().length > 0) {
                                 if (!hasHeaderLoaded) {
-                                    // 第一個碰到的有效分頁：完整載入（含標題）
                                     if (!csvChunk.endsWith("\n")) csvChunk += "\n";
                                     csvChunksArray.push(csvChunk);
                                     hasHeaderLoaded = true;
                                 } else {
-                                    // 後續的所有分頁：自動切掉第一行重複的標題，只串接純數據
                                     const firstLineBreak = csvChunk.indexOf("\n");
                                     if (firstLineBreak !== -1) {
                                         let noHeaderChunk = csvChunk.substring(firstLineBreak + 1);
@@ -410,49 +419,96 @@
                             }
                             csvChunk = null;
                         });
-
-                        // 釋放記憶體，防止大型物件在 V8 引擎堆疊
-                        wb.Sheets = null; wb.SheetNames = null; wb = null;
-                        arrayBuffer = null;
+                        wb.Sheets = null; wb.SheetNames = null; wb = null; arrayBuffer = null;
                     } catch (err) { console.error(err); }
-                    
                     reader = null;
-                    setTimeout(resolve, 30); // 給予瀏覽器微小排程空隙避免凍結
+                    setTimeout(resolve, 30);
                 };
                 reader.readAsArrayBuffer(file);
             });
         };
 
-        // 循序安全執行非同步讀取
-        for (let i = 0; i < files.length; i++) {
-            await parseFileToCSVStreamAsync(files[i], i);
-        }
+        for (let i = 0; i < files.length; i++) { await parseFileAsync(files[i], i); }
 
-        resultContainer.innerHTML = "⏳ 正在直接封裝大數據 CSV 串流 (打破百萬行物理限制)...";
-        
+        resultContainer.innerHTML = "⏳ 正在直接封裝大數據 CSV 串流...";
         setTimeout(() => {
             try {
-                if (csvChunksArray.length === 0) {
-                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：所有檔案內均無有效資料。</div>`; return;
-                }
-
-                // 注入 [0xEF, 0xBB, 0xBF] (UTF-8 BOM)，保證雙擊 CSV 用 Excel 開啟不亂碼
-                // 採用 Blob 陣列展開，跳過字串相加造成的 V8 記憶體溢出
+                if (csvChunksArray.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：無有效資料。</div>`; return; }
                 const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), ...csvChunksArray], { type: 'text/csv;charset=utf-8;' });
                 csvChunksArray = null; 
 
                 const dlUrl = URL.createObjectURL(blob);
-                const outName = `帳務多檔全分頁合併大數據匯出_${getSafeDateString()}.csv`;
+                const outName = `帳務多檔合併_單一分頁大數據_${getSafeDateString()}.csv`;
+                resultContainer.innerHTML = `
+                    <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
+                        <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 模式 A 合併成功！(打破百萬行限制)</p>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 12px;">已將所有檔案之全部分頁縱向接龍，匯出為防亂碼 CSV 檔。</p>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
+                    </div>`;
+            } catch (e) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：瀏覽器快取不足。</div>`; }
+        }, 100);
+    }
+
+    // [模式 B] 一檔案一分頁（維持 Excel 匯出，加入底層記憶體優化，防「跳糟糕」）
+    async function startMergeToMultiSheetsExcel() {
+        const fileInput = document.getElementById('mergeFiles');
+        const resultContainer = document.getElementById('resultContainer');
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
+
+        const files = Array.from(fileInput.files);
+        const finalWorkbook = XLSX.utils.book_new();
+        let nameCounter = {};
+
+        const parseFileToSheetAsync = (file, index) => {
+            return new Promise((resolve) => {
+                resultContainer.innerHTML = `📊 [模式 B] 正在處理分頁第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        let arrayBuffer = new Uint8Array(e.target.result);
+                        let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+                        const firstSheetName = wb.SheetNames[0];
+
+                        if (firstSheetName && wb.Sheets[firstSheetName]) {
+                            // 抓取各檔主頁，並進行檔名去重複化處理以符合 Excel 命名規範
+                            let baseName = file.name.replace(/\.[^/.]+$/, "").substring(0, 26);
+                            if (nameCounter[baseName] === undefined) {
+                                nameCounter[baseName] = 1;
+                            } else {
+                                nameCounter[baseName]++;
+                                baseName = baseName.substring(0, 22) + "_" + nameCounter[baseName];
+                            }
+                            
+                            // 將該工作表直接注入到最終的 Excel 中
+                            XLSX.utils.book_append_sheet(finalWorkbook, wb.Sheets[firstSheetName], baseName);
+                        }
+                        wb.Sheets = null; wb.SheetNames = null; wb = null; arrayBuffer = null;
+                    } catch (err) { console.error(err); }
+                    reader = null;
+                    setTimeout(resolve, 30); 
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        };
+
+        for (let i = 0; i < files.length; i++) { await parseFileToSheetAsync(files[i], i); }
+
+        resultContainer.innerHTML = "⏳ 正在包裝多工作表 Excel 檔案...";
+        setTimeout(() => {
+            try {
+                if (finalWorkbook.SheetNames.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：找不到有效分頁。</div>`; return; }
+                const outData = XLSX.write(finalWorkbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([outData], { type: 'application/octet-stream' });
+                const dlUrl = URL.createObjectURL(blob);
+                const outName = `帳務多檔合併_一檔一分頁_${getSafeDateString()}.xlsx`;
 
                 resultContainer.innerHTML = `
                     <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
-                        <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 串流大數據合併成功！(無上限限制)</p>
-                        <p style="font-size: 12px; color: #666; margin-bottom: 12px;">已自動掃描並合併所有 Excel 檔案內的所有分頁數據。</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
+                        <p style="color:#007bff; font-weight:bold; margin-top:0;">🎉 模式 B 合併成功！</p>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 12px;">已成功將每個檔案獨立拆分在不同 Excel 標籤頁（Tab）中。</p>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 Excel</a>
                     </div>`;
-            } catch (e) {
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：瀏覽器快取已被撐滿。</div>`;
-            }
+            } catch (e) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：檔案過大導致打包崩潰。</div>`; }
         }, 100);
     }
 </script>
