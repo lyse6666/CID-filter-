@@ -3,79 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好好篩 - 雲端資料庫同步系統</title>
+    <title>好好篩</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        .header h1 {
-            color: #007bff;
-            margin: 0 0 5px 0;
-            font-size: 26px;
-        }
-        .main-content {
-            max-width: 1100px;
-            margin: auto;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h1 { color: #007bff; margin: 0; font-size: 26px; }
+        .main-content { max-width: 1100px; margin: auto; display: flex; gap: 20px; flex-wrap: wrap; }
         .column-left { flex: 1; min-width: 320px; }
         .column-right { flex: 1.2; min-width: 350px; }
-        .card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border: 1px solid #eaeaea;
-        }
-        .card h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 16px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            color: #444;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        input[type="text"], select, textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eaeaea; }
+        .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px; color: #444; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         textarea { height: 110px; resize: vertical; }
-        .btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-bottom: 8px;
-        }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
         .btn:last-child { margin-bottom: 0; }
         .btn-blue { background-color: #007bff; color: white; }
         .btn-blue:hover { background-color: #0056b3; }
@@ -85,16 +28,7 @@
         .btn-orange:hover { background-color: #e0630d; }
         .btn-purple { background-color: #6f42c1; color: white; }
         .btn-purple:hover { background-color: #59359a; }
-        .btn-danger {
-            background-color: #fff;
-            color: #dc3545;
-            border: 1px solid #dc3545;
-            padding: 6px 12px;
-            width: auto;
-            font-size: 12px;
-            margin-top: 15px;
-            border-radius: 4px;
-        }
+        .btn-danger { background-color: #fff; color: #dc3545; border: 1px solid #dc3545; padding: 6px 12px; width: auto; font-size: 12px; margin-top: 15px; border-radius: 4px; }
         .btn-danger:hover { background-color: #fff5f5; }
         .status-text { font-size: 14px; font-weight: bold; margin-top: 10px; }
         .status-success { color: #28a745; }
@@ -106,17 +40,12 @@
         .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 4px; cursor: pointer; }
         .download-box { background-color: #e8f4fd; border: 2px dashed #007bff; border-radius: 6px; padding: 15px; text-align: center; }
         
-        /* 彈出視窗 */
-        .custom-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center;
-        }
+        .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .modal-body { max-height: 250px; overflow-y: auto; font-size: 14px; }
         .modal-account-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px dashed #eee; }
         .btn-inline-del { color: #dc3545; cursor: pointer; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-        .btn-inline-del:hover { background-color: #fff5f5; }
         .cid-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin: 5px 0; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #e9ecef; font-size: 13px; }
         .cid-click-area { flex: 1; cursor: pointer; }
     </style>
@@ -218,9 +147,7 @@
 
     window.onload = function() {
         const localBackup = localStorage.getItem('backup_cloud_db');
-        if (localBackup) {
-            try { cloudDatabase = JSON.parse(localBackup); } catch(e) { cloudDatabase = {}; }
-        }
+        if (localBackup) { try { cloudDatabase = JSON.parse(localBackup); } catch(e) { cloudDatabase = {}; } }
         updateCidDropdownAndList();
         loadFromCloud();
     };
@@ -249,15 +176,12 @@
         const listContainer = document.getElementById('cidListContainer');
         if (!select || !listContainer) return;
 
-        select.innerHTML = '';
-        listContainer.innerHTML = '';
+        select.innerHTML = ''; listContainer.innerHTML = '';
         const cids = Object.keys(cloudDatabase);
 
         if (cids.length === 0) {
             const opt = document.createElement('option'); opt.value = ""; opt.text = "-- 目前無有效 CID --";
-            select.appendChild(opt);
-            listContainer.innerText = "目前無已儲存的名單。";
-            return;
+            select.appendChild(opt); listContainer.innerText = "目前無已儲存的名單。"; return;
         }
 
         cids.forEach(cid => {
@@ -292,13 +216,11 @@
         localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
         
         updateCidDropdownAndList();
-        cidNameInput.value = '';
-        accountListInput.value = '';
+        cidNameInput.value = ''; accountListInput.value = '';
 
         document.getElementById('syncStatus').innerText = "⏳ 正在同步更新至雲端...";
         fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors', 
-            body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
+            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
@@ -308,8 +230,7 @@
         const body = document.getElementById('modalBody');
         if(!modal || !title || !body) return;
 
-        title.innerText = `【 ${cid} 】帳號明細`;
-        body.innerHTML = '';
+        title.innerText = `【 ${cid} 】帳號明細`; body.innerHTML = '';
         (cloudDatabase[cid] || []).forEach(acc => {
             const row = document.createElement('div'); row.className = "modal-account-item";
             row.innerHTML = `<span>${acc}</span><span class="btn-inline-del" onclick="deleteSingleAccount('${cid}', '${acc}')">❌</span>`;
@@ -327,8 +248,7 @@
         localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
         updateCidDropdownAndList();
         fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors',
-            body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
+            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
@@ -338,21 +258,19 @@
         localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
         updateCidDropdownAndList();
         fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors',
-            body: JSON.stringify({ cid: cid, action: "deleteCid" })
+            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cid, action: "deleteCid" })
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
     function clearAllRecords() {
         if (!confirm("確定要完全清除所有紀錄？")) return;
-        cloudDatabase = {};
-        localStorage.setItem('backup_cloud_db', "{}");
+        cloudDatabase = {}; localStorage.setItem('backup_cloud_db', "{}");
         updateCidDropdownAndList();
         fetch(CLOUD_API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "clearAll" }) })
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：單檔篩選 =================
+    // ================= 功能一：單檔篩選 (未更動) =================
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -425,8 +343,7 @@
                 });
 
                 if (newWorkbook.SheetNames.length === 0) {
-                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 找不到任何匹配的 Account 資料！</div>`;
-                    return;
+                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 找不到任何匹配的 Account 資料！</div>`; return;
                 }
 
                 const outData = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
@@ -446,7 +363,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔防當機合併 (模式A & 模式B) =================
+    // ================= 功能二：多檔合併 (保證原始資料一字不漏) =================
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
@@ -457,12 +374,12 @@
 
         const mode = modeElement.value;
         const files = Array.from(fileInput.files);
-        const outWorkbook = XLSX.utils.book_new();
         
         let combinedRows = [];
         let globalHeader = null;
         let sheetNameCounters = {};
         let currentFileIndex = 0;
+        let modeB_SheetsData = {}; 
 
         function processNextFile() {
             if (currentFileIndex >= files.length) {
@@ -478,69 +395,70 @@
             reader.onload = function(e) {
                 try {
                     const arrayBuffer = new Uint8Array(e.target.result);
+                    // raw: true 配合 cellDates: true 完整抽離包含日期在內的所有原始真實數值
                     let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
                     const firstSheetName = wb.SheetNames[0];
 
                     if (firstSheetName && wb.Sheets[firstSheetName]) {
-                        // 正確使用 aoa 二進位讀取與轉換，不丟失、不亂碼
-                        let rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "" });
+                        // 修正：{ header: 1, defval: "" } 保證不論欄位多寬、不論格式如何，一律補齊所有邊界的欄位陣列，絕對不遺漏資料
+                        let rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "", raw: true });
                         
                         if (rawRows && rawRows.length > 0) {
                             if (mode === "single") {
-                                // 模式 A：合併至單一分頁
+                                // 模式 A：單一分頁合併
                                 if (!globalHeader && rawRows[0]) {
-                                    globalHeader = rawRows[0];
+                                    globalHeader = rawRows[0]; 
                                     combinedRows.push(globalHeader);
                                 }
                                 const contentRows = rawRows.slice(1);
                                 if (contentRows.length > 0) combinedRows = combinedRows.concat(contentRows);
                             } else if (mode === "multi") {
-                                // 模式 B：一個檔案獨立建立一個分頁 (修復空白與亂碼)
+                                // 模式 B：分頁獨立，保留原檔名稱
                                 let wantedName = file.name.replace(/\.[^/.]+$/, "").substring(0, 30);
                                 if (sheetNameCounters[wantedName]) {
                                     sheetNameCounters[wantedName]++;
                                     wantedName = wantedName.substring(0, 26) + "_" + sheetNameCounters[wantedName];
-                                } else {
-                                    sheetNameCounters[wantedName] = 1;
-                                }
-                                const newSheet = XLSX.utils.aoa_to_sheet(rawRows);
-                                XLSX.utils.book_append_sheet(outWorkbook, newSheet, wantedName);
+                                } else { sheetNameCounters[wantedName] = 1; }
+                                
+                                modeB_SheetsData[wantedName] = rawRows;
                             }
                         }
                         rawRows = null;
                     }
-
-                    // 釋放記憶體
                     wb.Sheets = null; wb.SheetNames = null; wb = null;
+                } catch (err) { console.error(err); }
 
-                } catch (err) {
-                    console.error(err);
-                }
-
-                // 強制切斷執行緒，讓瀏覽器釋放剛才吃掉的記憶體，彻底防止「糟糕！」
                 currentFileIndex++;
-                setTimeout(processNextFile, 350);
+                setTimeout(processNextFile, 250);
             };
             reader.readAsArrayBuffer(file);
         }
 
         function finalizeExcelOutput() {
             try {
+                const finalWorkbook = XLSX.utils.book_new();
+                
                 if (mode === "single") {
                     if (combinedRows.length <= 1) {
-                        resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：檔案內無有效資料！</div>`;
-                        return;
+                        resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：檔案內無有效資料！</div>`; return;
                     }
                     const newSheet = XLSX.utils.aoa_to_sheet(combinedRows);
-                    XLSX.utils.book_append_sheet(outWorkbook, newSheet, "綜合合併結果");
+                    XLSX.utils.book_append_sheet(finalWorkbook, newSheet, "綜合合併結果");
+                    combinedRows = null;
+                } else if (mode === "multi") {
+                    const sheetNames = Object.keys(modeB_SheetsData);
+                    if (sheetNames.length === 0) {
+                        resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：未生成任何分頁。</div>`; return;
+                    }
+                    sheetNames.forEach(name => {
+                        const sData = modeB_SheetsData[name];
+                        const newSheet = XLSX.utils.aoa_to_sheet(sData);
+                        XLSX.utils.book_append_sheet(finalWorkbook, newSheet, name);
+                        delete modeB_SheetsData[name]; 
+                    });
                 }
 
-                if (!outWorkbook.SheetNames || outWorkbook.SheetNames.length === 0) {
-                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：未生成任何分頁。</div>`;
-                    return;
-                }
-
-                const outData = XLSX.write(outWorkbook, { bookType: 'xlsx', type: 'array' });
+                const outData = XLSX.write(finalWorkbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([outData], { type: 'application/octet-stream' });
                 const dlUrl = URL.createObjectURL(blob);
                 const outName = `帳務多檔合併匯出_${getSafeDateString()}.xlsx`;
@@ -551,7 +469,7 @@
                         <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 Excel</a>
                     </div>`;
             } catch (e) {
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：資料量可能超出了單張 Excel 的極限。</div>`;
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：資料量超出了極限。</div>`;
             }
         }
 
