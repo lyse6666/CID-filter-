@@ -521,4 +521,243 @@
         cloudDatabase = {};
         localStorage.setItem('backup_cloud_db', "{}");
         updateCidDropdownAndList();
-        fetch(CLOUD_API_URL, { method: '
+        fetch(CLOUD_API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "clearAll" }) })
+        .then(() => {
+            setTimeout(loadFromCloud, 1500);
+        });
+    }
+
+    function startFiltering(processAllSheets = false) {
+        const selectedCid = document.getElementById('cidSelect').value;
+        const fileInput = document.getElementById('excelFile');
+        const resultContainer = document.getElementById('resultContainer');
+
+        if (!selectedCid) { alert('請先選擇你要篩選的 CID 名單！'); return; }
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳你要篩選的 Excel 檔案！'); return; }
+
+        const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
+        resultContainer.innerHTML = processAllSheets ? "⏳ 全部分頁正在進行物理拷貝篩選中..." : "⏳ 正在處理第一分頁原始格式保護篩選...";
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true });
+                
+                const newWorkbook = XLSX.utils.book_new();
+                let summary = []; 
+                let sheetsToProcess = processAllSheets ? workbook.SheetNames : [workbook.SheetNames[0]];
+
+                sheetsToProcess.forEach(name => {
+                    const origSheet = workbook.Sheets[name];
+                    if (!origSheet || !origSheet['!ref']) return;
+
+                    const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                    if (rawRows.length === 0) return;
+
+                    let keepRowIndexes = [0]; 
+                    let matchCount = 0;
+
+                    for (let i = 1; i < rawRows.length; i++) {
+                        if (!rawRows[i] || rawRows[i].length === 0) continue;
+                        const hasMatch = rawRows[i].some(cellVal => {
+                            if (cellVal === null || cellVal === undefined) return false;
+                            return targetAccounts.includes(cellVal.toString().trim());
+                        });
+                        if (hasMatch) {
+                            keepRowIndexes.push(i);
+                            matchCount++;
+                        }
+                    }
+
+                    if (matchCount === 0 && processAllSheets) return;
+
+                    const clonedSheet = Object.assign({}, origSheet);
+                    const range = XLSX.utils.decode_range(clonedSheet['!ref']);
+                    const totalRows = range.e.r + 1;
+
+                    let keepMap = {};
+                    keepRowIndexes.forEach(idx => { keepMap[idx] = true; });
+
+                    let newSheet = {};
+                    let currentNewRow = 0;
+
+                    for (let r = 0; r < totalRows; r++) {
+                        if (keepMap[r]) {
+                            let hasCellInRow = false;
+                            for (let c = range.s.c; c <= range.e.c; c++) {
+                                const oldCellRef = XLSX.utils.encode_cell({ r: r, c: c });
+                                if (clonedSheet[oldCellRef]) {
+                                    const newCellRef = XLSX.utils.encode_cell({ r: currentNewRow, c: c });
+                                    newSheet[newCellRef] = clonedSheet[oldCellRef];
+                                    hasCellInRow = true;
+                                }
+                            }
+                            if (hasCellInRow || r === 0) {
+                                currentNewRow++;
+                            }
+                        }
+                    }
+
+                    if (currentNewRow > 0) {
+                        const newRange = { s: { c: range.s.c, r: 0 }, e: { c: range.e.c, r: Math.max(0, currentNewRow - 1) } };
+                        newSheet['!ref'] = XLSX.utils.encode_range(newRange);
+                        if (clonedSheet['!cols']) newSheet['!cols'] = clonedSheet['!cols'];
+                        if (clonedSheet['!merges']) newSheet['!merges'] = clonedSheet['!merges'];
+
+                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                        summary.push(`分頁 [${name}]: 篩選出 ${matchCount} 筆相關紀錄`);
+                    }
+                });
+
+                if (newWorkbook.SheetNames.length === 0) {
+                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選完成：找不到任何一筆與 CID 匹配的 Account 資料！</div>`;
+                    return;
+                }
+
+                const outData = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([outData], { type: 'application/octet-stream' });
+                const dlUrl = URL.createObjectURL(blob);
+                const outName = `好好篩_${selectedCid}_${getSafeDateString()}.xlsx`;
+
+                resultContainer.innerHTML = `
+                    <div class="download-box">
+                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式保護篩選成功！</p>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-block; text-decoration:none; width:auto; padding:10px 25px;">📥 下載篩選後 Excel 檔案</a>
+                    </div>
+                    <div class="report-list">
+                        <strong>📊 數據過濾報告：</strong>
+                        <ul>${summary.map(s => `<li>${s}</li>`).join('')}</ul>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 讀取或篩選 Excel 失敗，請確認檔案是否毀損。</div>`;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function startMergeAndExport() {
+        const fileInput = document.getElementById('mergeFiles');
+        const modeElement = document.querySelector('input[name="mergeMode"]:checked');
+        const resultContainer = document.getElementById('resultContainer');
+
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案來進行合併！'); return; }
+        if (!modeElement) return;
+
+        const mode = modeElement.value;
+        resultContainer.innerHTML = "⏳ 正在跨檔案抽取結構，建立高安全合併中...";
+
+        const files = Array.from(fileInput.files);
+        let fileBuffers = [];
+        let loadedCount = 0;
+
+        files.forEach((file, fIdx) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fileBuffers[fIdx] = { name: file.name.replace(/\.[^/.]+$/, ""), data: new Uint8Array(e.target.result) };
+                loadedCount++;
+                if (loadedCount === files.length) {
+                    executeMergeLogic(fileBuffers, mode, resultContainer);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function executeMergeLogic(buffers, mode, container) {
+        try {
+            const outWorkbook = XLSX.utils.book_new();
+            let summaryLogs = [];
+
+            if (mode === "single") {
+                let combinedRows = [];
+                let globalHeader = null;
+
+                buffers.forEach(f => {
+                    const wb = XLSX.read(f.data, { type: 'array' });
+                    const firstSheetName = wb.SheetNames[0];
+                    const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "" });
+                    
+                    if (rawRows.length > 0) {
+                        if (!globalHeader) {
+                            globalHeader = rawRows[0];
+                            combinedRows.push(globalHeader);
+                        }
+                        const contentRows = rawRows.slice(1);
+                        combinedRows = combinedRows.concat(contentRows);
+                        summaryLogs.push(`檔案 [${f.name}] 第一分頁: 合併了 ${contentRows.length} 行數據`);
+                    }
+                });
+
+                const newSheet = XLSX.utils.aoa_to_sheet(combinedRows);
+                XLSX.utils.book_append_sheet(outWorkbook, newSheet, "綜合合併結果");
+
+            } else if (mode === "multi") {
+                let sheetNameCounters = {};
+                buffers.forEach(f => {
+                    const wb = XLSX.read(f.data, { type: 'array' });
+                    const firstSheetName = wb.SheetNames[0];
+                    const origSheet = wb.Sheets[firstSheetName];
+
+                    let wantedName = f.name.substring(0, 30);
+                    if (sheetNameCounters[wantedName]) {
+                        sheetNameCounters[wantedName]++;
+                        wantedName = wantedName.substring(0, 26) + "_" + sheetNameCounters[wantedName];
+                    } else {
+                        sheetNameCounters[wantedName] = 1;
+                    }
+
+                    XLSX.utils.book_append_sheet(outWorkbook, Object.assign({}, origSheet), wantedName);
+                    summaryLogs.push(`檔案 [${f.name}] -> 獨立分頁 [${wantedName}]`);
+                });
+
+            } else if (mode === "same") {
+                let sheetGroups = {};
+                buffers.forEach(f => {
+                    const wb = XLSX.read(f.data, { type: 'array' });
+                    wb.SheetNames.forEach(sName => {
+                        const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[sName], { header: 1, defval: "" });
+                        if (rawRows.length === 0) return;
+
+                        if (!sheetGroups[sName]) {
+                            sheetGroups[sName] = { header: rawRows[0], rows: [rawRows[0]] };
+                        }
+                        const contentRows = rawRows.slice(1);
+                        sheetGroups[sName].rows = sheetGroups[sName].rows.concat(contentRows);
+                    });
+                    summaryLogs.push(`檔案 [${f.name}] 已依相同分頁名完成分流對齊`);
+                });
+
+                Object.keys(sheetGroups).forEach(sName => {
+                    const newSheet = XLSX.utils.aoa_to_sheet(sheetGroups[sName].rows);
+                    XLSX.utils.book_append_sheet(outWorkbook, newSheet, sName.substring(0, 31));
+                });
+            }
+
+            const outData = XLSX.write(outWorkbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([outData], { type: 'application/octet-stream' });
+            const dlUrl = URL.createObjectURL(blob);
+            const outName = `多檔合併匯出_${getSafeDateString()}.xlsx`;
+
+            container.innerHTML = `
+                <div class="download-box">
+                    <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 多檔案合併封裝完成！</p>
+                    <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; text-decoration:none; width:auto; padding:10px 25px;">📥 下載已合併 Excel 檔案</a>
+                </div>
+                <div class="report-list">
+                    <strong>🗂️ 合併作業日誌：</strong>
+                    <ul>${summaryLogs.map(log => `<li>${log}</li>`).join('')}</ul>
+                </div>
+            `;
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = `<div class="status-text status-error">❌ 合併失敗：部分 Excel 檔案格式不相容或已被保護。</div>`;
+        }
+    }
+</script>
+</body>
+</html>
