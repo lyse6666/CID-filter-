@@ -527,7 +527,6 @@
         });
     }
 
-    // 🎯 精準安全篩選核心演算法 (100% 杜絕格式錯亂與數據被改問題)
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -641,7 +640,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // 🗂️ 巨量多檔案流式合併匯出工具 (專為巨量帳務欄位優化)
+    // 🗂️ 巨量多檔案排程非阻塞式合併匯出工具（高相容、絕不卡死無響應）
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
@@ -651,8 +650,6 @@
         if (!modeElement) return;
 
         const mode = modeElement.value;
-        resultContainer.innerHTML = "⏳ 正在採用記憶體流式防崩潰演算法，跨大檔案合併中...";
-
         const files = Array.from(fileInput.files);
         const outWorkbook = XLSX.utils.book_new();
         let summaryLogs = [];
@@ -661,22 +658,27 @@
         let sheetGroups = {};
         let sheetNameCounters = {};
 
-        // 採用遞迴分步讀取法，讀完一個、銷毀一個，完美維持極低記憶體
-        function readAndProcessFile(index) {
-            if (index >= files.length) {
-                // 所有檔案全部處理完畢，開始封裝輸出
-                finishAndDownloadMerge(outWorkbook, mode, combinedRows, sheetGroups, summaryLogs, resultContainer);
-                return;
-            }
+        // 非同步讀取包裝函數，引入時間喘息防卡死
+        function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) { resolve(new Uint8Array(e.target.result)); };
+                reader.onerror = function(err) { reject(err); };
+                reader.readAsArrayBuffer(file);
+            });
+        }
 
-            const file = files[index];
-            const reader = new FileReader();
+        async function processAllFilesSequentially() {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                resultContainer.innerHTML = `⏳ 正在讀取並轉譯第 ${i + 1} / ${files.length} 個帳務檔：<br><b>${file.name}</b><br><span style="font-size:12px; color:#666;">(大檔案轉譯中，請勿關閉網頁...)</span>`;
+                
+                // 讓瀏覽器重新渲染UI畫面
+                await new Promise(r => setTimeout(r, 60));
 
-            reader.onload = function(e) {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    // 關鍵記憶體優化：不讀取複雜樣式與中介資料，唯讀取資料本體
-                    const wb = XLSX.read(data, { type: 'array', cellDates: true, raw: true });
+                    const arrayBuffer = await readFileAsync(file);
+                    const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
                     
                     if (mode === "single") {
                         const firstSheetName = wb.SheetNames[0];
@@ -689,7 +691,7 @@
                                 }
                                 const contentRows = rawRows.slice(1);
                                 combinedRows = combinedRows.concat(contentRows);
-                                summaryLogs.push(`檔案 [${file.name}]：成功合併 ${contentRows.length} 行大帳務明細`);
+                                summaryLogs.push(`檔案 [${file.name}]：成功抽取出 ${contentRows.length} 行明細`);
                             }
                         }
                     } else if (mode === "multi") {
@@ -705,7 +707,7 @@
                             }
                             const newSheet = XLSX.utils.aoa_to_sheet(rawRows);
                             XLSX.utils.book_append_sheet(outWorkbook, newSheet, wantedName);
-                            summaryLogs.push(`檔案 [${file.name}] -> 已獨立為分頁 [${wantedName}] (${rawRows.length}行)`);
+                            summaryLogs.push(`檔案 [${file.name}] -> 獨立分頁 [${wantedName}] (${rawRows.length}行)`);
                         }
                     } else if (mode === "same") {
                         wb.SheetNames.forEach(sName => {
@@ -717,27 +719,27 @@
                             }
                             sheetGroups[sName].rows = sheetGroups[sName].rows.concat(rawRows.slice(1));
                         });
-                        summaryLogs.push(`檔案 [${file.name}]：已依相同分頁結構完成對齊分流`);
+                        summaryLogs.push(`檔案 [${file.name}]：已依分頁結構對齊分流`);
                     }
 
-                    // 【核心防崩潰步驟】：強制將當前檔案變數全部設為 null 釋放瀏覽器記憶體
-                    e = null;
-                    data = null;
-                    wb = null;
-
-                    // 呼叫下一條
-                    setTimeout(() => { readAndProcessFile(index + 1); }, 50);
+                    // 強制釋放此檔案佔用的記憶體
+                    wb.Sheets = null;
+                    wb.SheetNames = null;
 
                 } catch (err) {
                     console.error(err);
-                    container.innerHTML = `<div class="status-text status-error">❌ 合併失敗：檔案 [${file.name}] 解析出錯。</div>`;
+                    summaryLogs.push(`❌ 檔案 [${file.name}] 解析失敗跳過`);
                 }
-            };
-            reader.readAsArrayBuffer(file);
+            }
+
+            // 全部檔案讀完，進入打包輸出階段
+            resultContainer.innerHTML = "⏳ 正在將所有巨量數據封裝成全新 Excel 檔案，請稍候...";
+            await new Promise(r => setTimeout(r, 100));
+            finishAndDownloadMerge(outWorkbook, mode, combinedRows, sheetGroups, summaryLogs, resultContainer);
         }
 
-        // 開始第一支檔案處理
-        readAndProcessFile(0);
+        // 啟動排程非同步程序
+        processAllFilesSequentially();
     }
 
     function finishAndDownloadMerge(outWorkbook, mode, combinedRows, sheetGroups, summaryLogs, container) {
@@ -752,15 +754,14 @@
                 });
             }
 
-            // 寫出合併後的 Excel
             const outData = XLSX.write(outWorkbook, { bookType: 'xlsx', type: 'array' });
             const blob = new Blob([outData], { type: 'application/octet-stream' });
             const dlUrl = URL.createObjectURL(blob);
-            const outName = `帳務多檔流式合併匯出_${getSafeDateString()}.xlsx`;
+            const outName = `帳務多檔高效合併匯出_${getSafeDateString()}.xlsx`;
 
             container.innerHTML = `
                 <div class="download-box">
-                    <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 多檔案流式封裝成功（已防記憶體爆倉）！</p>
+                    <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 巨量數據非同步合併成功！</p>
                     <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; text-decoration:none; width:auto; padding:10px 25px;">📥 下載已合併 Excel 檔案</a>
                 </div>
                 <div class="report-list">
@@ -770,7 +771,7 @@
             `;
         } catch (e) {
             console.error(e);
-            container.innerHTML = `<div class="status-text status-error">❌ 匯出 Excel 時記憶體不足，建議分批（每次3個檔案）進行合併。</div>`;
+            container.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：數據行數超出單張 Excel 工作表或瀏覽器極限。</div>`;
         }
     }
 </script>
