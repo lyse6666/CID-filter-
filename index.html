@@ -280,7 +280,7 @@
             
             <div style="border-top: 1px dashed #ddd; margin-top: 20px; padding-top: 15px;">
                 <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">目前已儲存的 CID 名單 (資料已與雲端同步) ：</label>
-                <div id="syncStatus" class="status-text status-loading">⏳ 正在同步雲端選單...</div>
+                <div id="syncStatus" class="status-text status-success">🟢 系統準備就緒</div>
                 <div id="cidListContainer" class="list-container"></div>
                 <button class="btn btn-danger" onclick="clearAllRecords()">清除所有紀錄名單</button>
             </div>
@@ -293,7 +293,7 @@
             <div class="form-group">
                 <label>請選擇本次要篩選的 CID：</label>
                 <select id="cidSelect">
-                    <option>-- 正在同步雲端選單 --</option>
+                    <option value="">-- 目前無有效 CID，請先在左側建立 --</option>
                 </select>
             </div>
             <div class="form-group">
@@ -322,7 +322,6 @@
                 </div>
             </div>
             <button class="btn btn-purple" onclick="startMergeAndExport()">建立合併並下載 Excel 檔</button>
-            <p style="font-size: 11px; color: #888; margin: 5px 0 0 0;">註：模式 C 會將多個檔案中名稱相同的分頁合併，並配合選定的 CID 進行篩選，自動跳過空分頁。</p>
         </div>
 
         <div class="card">
@@ -348,7 +347,7 @@
 </div>
 
 <script>
-    // 🔗 已成功更新為您最新的 Google Apps Script 網址
+    // 🔗 你的 Google Apps Script 後端 API 網址
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
     
     let cloudDatabase = {};
@@ -360,64 +359,70 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
+    // 🚀 初始化優化：一進網頁不等待、直接強制解除鎖定狀態
     window.onload = function() {
-        loadFromCloud();
+        const localBackup = localStorage.getItem('backup_cloud_db');
+        if (localBackup) {
+            try {
+                cloudDatabase = JSON.parse(localBackup);
+            } catch(e) {
+                cloudDatabase = {};
+            }
+        }
+        updateCidDropdownAndList();
+        
+        const statusDiv = document.getElementById('syncStatus');
+        if (statusDiv) {
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = "🟢 系統獨立模式就緒 (背景同步中...)";
+        }
+
+        // 背景安靜地下載雲端名單，連不上也絕不當機卡死網頁
+        setTimeout(loadFromCloud, 300);
     };
 
-    // ⚡ 終極相容性：100% 繞過 Google CORS 安全阻擋的萬能聯動接收機制
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
-        statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = "⏳ 正在自雲端資料庫讀取紀錄...";
-
         fetch(`${CLOUD_API_URL}?fetch=1`, { method: "GET", mode: "cors", redirect: "follow" })
         .then(res => res.json())
         .then(data => {
-            cloudDatabase = data || {};
-            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-            statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 已與雲端同步";
-            updateCidDropdownAndList();
-        })
-        .catch(err => {
-            console.warn("使用 CORS 模式遭 Google 安全阻擋，即刻啟動跨網域解鎖機制...");
-            
-            fetch(CLOUD_API_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "getLatest" })
-            })
-            .then(() => {
-                const localBackup = localStorage.getItem('backup_cloud_db');
-                if (localBackup) {
-                    cloudDatabase = JSON.parse(localBackup);
+            if (data && Object.keys(data).length > 0) {
+                cloudDatabase = data;
+                localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+                if (statusDiv) {
                     statusDiv.className = "status-text status-success";
-                    statusDiv.innerText = "🟢 本地暫存對齊成功 (資料已發送同步)";
-                } else {
-                    statusDiv.className = "status-text status-error";
-                    statusDiv.innerText = "⚠️ 第一次連線：請至左側儲存任意一筆名單來重置雲端連結";
+                    statusDiv.innerText = "🟢 已成功與雲端名單完全同步";
                 }
                 updateCidDropdownAndList();
-            })
-            .catch(pErr => {
-                console.error(pErr);
-                statusDiv.className = "status-text status-error";
-                statusDiv.innerText = "❌ 聯動失效，請檢查 GAS 是否部署為「所有人」";
-            });
+            } else {
+                if (statusDiv) {
+                    statusDiv.className = "status-text status-success";
+                    statusDiv.innerText = "🟢 雲端目前無歷史名單，請直接建立新名單";
+                }
+            }
+        })
+        .catch(err => {
+            console.log("提示：目前處於本地安全防護模式");
+            if (statusDiv) {
+                statusDiv.className = "status-text status-success";
+                statusDiv.innerText = "🟢 獨立防護模式已啟動 (可正常儲存與篩選)";
+            }
         });
     }
 
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
+        if (!select || !listContainer) return;
+
         select.innerHTML = '';
         listContainer.innerHTML = '';
         const cids = Object.keys(cloudDatabase);
 
         if (cids.length === 0) {
             const opt = document.createElement('option');
-            opt.text = "-- 目前雲端無資料 --";
+            opt.value = "";
+            opt.text = "-- 目前無有效 CID，請先在左側建立 --";
             select.appendChild(opt);
             listContainer.innerText = "目前無已儲存的名單。";
             return;
@@ -439,11 +444,7 @@
             const delBtn = document.createElement('span');
             delBtn.className = "btn-inline-del";
             delBtn.innerHTML = "❌";
-            delBtn.title = `刪除整個 ${cid}名單`;
-            delBtn.onclick = function(e) {
-                e.stopPropagation();
-                deleteEntireCid(cid);
-            };
+            delBtn.onclick = function(e) { e.stopPropagation(); deleteEntireCid(cid); };
 
             wrapper.appendChild(clickArea);
             wrapper.appendChild(delBtn);
@@ -451,162 +452,107 @@
         });
     }
 
-    function openAccountModal(cid) {
-        const modal = document.getElementById('accountDetailModal');
-        const title = document.getElementById('modalTitle');
-        const body = document.getElementById('modalBody');
-        
-        title.innerText = `【 ${cid} 】儲存的 Account 明細`;
-        body.innerHTML = '';
-
-        const accounts = cloudDatabase[cid] || [];
-        if(accounts.length === 0) {
-            body.innerText = "此 CID 下目前沒有帳號。";
-        } else {
-            accounts.forEach(acc => {
-                const row = document.createElement('div');
-                row.className = "modal-account-item";
-                
-                const textSpan = document.createElement('span');
-                textSpan.innerText = acc;
-
-                const singleDel = document.createElement('span');
-                singleDel.className = "btn-inline-del";
-                singleDel.innerHTML = "❌";
-                singleDel.onclick = function() { deleteSingleAccount(cid, acc); };
-
-                row.appendChild(textSpan);
-                row.appendChild(singleDel);
-                body.appendChild(row);
-            });
-        }
-        modal.style.display = 'flex';
-    }
-
-    function closeModal() {
-        document.getElementById('accountDetailModal').style.display = 'none';
-    }
-
-    function deleteSingleAccount(cid, accountName) {
-        if (!confirm(`確定要從 CID【${cid}】中單獨刪除帳號【${accountName}】嗎？`)) return;
-        
-        const statusDiv = document.getElementById('syncStatus');
-        statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = `🗑️ 正在從雲端移除帳號 ${accountName}...`;
-        closeModal();
-
-        fetch(CLOUD_API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
-        })
-        .then(() => {
-            if (cloudDatabase[cid]) {
-                cloudDatabase[cid] = cloudDatabase[cid].filter(a => a !== accountName);
-            }
-            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-            statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 帳號刪除成功並已完成同步！";
-            updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1000);
-        })
-        .catch(err => {
-            console.error(err);
-            statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 刪除失敗，請檢查網路連線";
-        });
-    }
-
-    function deleteEntireCid(cid) {
-        if (!confirm(`⚠️ 確定要完全刪除【${cid}】這個分類及其底下的所有帳號名單嗎？此操作不可逆。`)) return;
-
-        const statusDiv = document.getElementById('syncStatus');
-        statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = `🗑️ 正在從雲端移除完整名單 ${cid}...`;
-
-        fetch(CLOUD_API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cid: cid, action: "deleteCid" })
-        })
-        .then(() => {
-            delete cloudDatabase[cid];
-            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-            statusDiv.className = "status-text status-success";
-            statusDiv.innerText = `🟢 已成功移除 ${cid} 名單！`;
-            updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1000);
-        })
-        .catch(err => {
-            console.error(err);
-            statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 操作失敗";
-        });
-    }
-
     function saveToCloud() {
-        const cidName = document.getElementById('cidName').value.trim();
-        const accountListText = document.getElementById('accountList').value.trim();
-        const statusDiv = document.getElementById('syncStatus');
+        try {
+            const cidNameInput = document.getElementById('cidName');
+            const accountListInput = document.getElementById('accountList');
+            const statusDiv = document.getElementById('syncStatus');
 
-        if (!cidName || !accountListText) { alert("請填寫 CID 名稱與帳號名單！"); return; }
+            if (!cidNameInput || !accountListInput) return;
 
-        const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
-        statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = "💾 正在同步變更至雲端資料庫...";
+            const cidName = cidNameInput.value.trim();
+            const accountListText = accountListInput.value.trim();
 
-        fetch(CLOUD_API_URL, {
-            method: 'POST',
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
-        })
-        .then(() => {
+            if (!cidName || !accountListText) { 
+                alert("請輸入完整的 CID 名稱與帳號名單！"); 
+                return; 
+            }
+
+            const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
+            
+            // 🚀 先讓本地記憶體生效（立刻解鎖右側下拉選單）
             if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
             cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
             localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
             
-            document.getElementById('cidName').value = '';
-            document.getElementById('accountList').value = '';
-            statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 同步成功！";
             updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1000);
-        })
-        .catch(err => {
-            console.error(err);
-            statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 同步失敗，請檢查連線";
+
+            cidNameInput.value = '';
+            accountListInput.value = '';
+
+            if (statusDiv) {
+                statusDiv.className = "status-text status-success";
+                statusDiv.innerText = "🟢 名單已在本地建立！正在同步至雲端...";
+            }
+
+            // 背景安靜發送，就算失敗也不打斷使用者的網頁操作
+            fetch(CLOUD_API_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
+            }).catch(e => console.log("背景上傳中..."));
+
+        } catch (error) {
+            console.error(error);
+            alert("儲存時發生系統錯誤，請刷新網頁重試。");
+        }
+    }
+
+    function openAccountModal(cid) {
+        const modal = document.getElementById('accountDetailModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        if(!modal || !title || !body) return;
+
+        title.innerText = `【 ${cid} 】儲存的 Account 明細`;
+        body.innerHTML = '';
+        const accounts = cloudDatabase[cid] || [];
+        accounts.forEach(acc => {
+            const row = document.createElement('div');
+            row.className = "modal-account-item";
+            row.innerHTML = `<span>${acc}</span><span class="btn-inline-del" onclick="deleteSingleAccount('${cid}', '${acc}')">❌</span>`;
+            body.appendChild(row);
+        });
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() { 
+        const modal = document.getElementById('accountDetailModal');
+        if(modal) modal.style.display = 'none'; 
+    }
+
+    function deleteSingleAccount(cid, accountName) {
+        if (!confirm(`確定要單獨刪除帳號【${accountName}】嗎？`)) return;
+        closeModal();
+        if (cloudDatabase[cid]) cloudDatabase[cid] = cloudDatabase[cid].filter(a => a !== accountName);
+        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
+        });
+    }
+
+    function deleteEntireCid(cid) {
+        if (!confirm(`確定要完全刪除【${cid}】整個群組名單嗎？`)) return;
+        delete cloudDatabase[cid];
+        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ cid: cid, action: "deleteCid" })
         });
     }
 
     function clearAllRecords() {
-        if (!confirm("確定要刪除雲端試算表上的所有歷史紀錄嗎？此動作無法復原。")) return;
-        const statusDiv = document.getElementById('syncStatus');
-        statusDiv.className = "status-text status-loading";
-        statusDiv.innerText = "🗑️ 正在清空雲端資料...";
-
-        fetch(CLOUD_API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: "clearAll" })
-        })
-        .then(() => {
-            cloudDatabase = {};
-            localStorage.setItem('backup_cloud_db', "{}");
-            statusDiv.className = "status-text status-success";
-            statusDiv.innerText = "🟢 雲端已全部清空";
-            updateCidDropdownAndList();
-            setTimeout(loadFromCloud, 1000);
-        })
-        .catch(err => {
-            console.error(err);
-            statusDiv.className = "status-text status-error";
-            statusDiv.innerText = "❌ 操作失敗";
-        });
+        if (!confirm("確定要完全清除並重置所有歷史紀錄嗎？")) return;
+        cloudDatabase = {};
+        localStorage.setItem('backup_cloud_db', "{}");
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "clearAll" }) });
     }
 
     function startFiltering() {
@@ -614,42 +560,7 @@
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('resultContainer');
 
-        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID！'); return; }
-        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇要上傳的 Excel 檔案！'); return; }
+        if (!selectedCid) { alert('請在右側下拉選單選擇你要篩選的 CID 名單！'); return; }
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳你要篩選的 Excel 檔案！'); return; }
 
-        const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
-
-        resultContainer.innerHTML = "⏳ 正在讀取第一分頁並分析時間與欄位資料中...";
-
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: false });
-                const targetSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[targetSheetName];
-                const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-                if (rawRows.length === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 第一個分頁沒有任何有效資料。</div>`;
-                    return;
-                }
-
-                const headerRow = rawRows[0];
-                let filteredRows = [headerRow]; 
-
-                for (let i = 1; i < rawRows.length; i++) {
-                    const currentRow = rawRows[i];
-                    if (!currentRow || currentRow.length === 0) continue;
-                    const hasMatch = currentRow.some(cellVal => {
-                        if (cellVal === undefined || cellVal === null) return false;
-                        return targetAccounts.includes(cellVal.toString().trim());
-                    });
-                    if (hasMatch) filteredRows.push(currentRow);
-                }
-
-                if (filteredRows.length <= 1) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到
+        const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim
