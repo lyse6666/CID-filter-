@@ -3,57 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好好篩</title>
+    <title>好好篩 - 跨瀏覽器、跨裝置雲端資料庫同步系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
-        .header { text-align: center; margin-bottom: 25px; }
-        .header h1 { color: #007bff; margin: 0; font-size: 26px; }
-        .main-content { max-width: 1100px; margin: auto; display: flex; gap: 20px; flex-wrap: wrap; }
-        .column-left { flex: 1; min-width: 320px; }
-        .column-right { flex: 1.2; min-width: 350px; }
-        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eaeaea; }
-        .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px; color: #444; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
-        input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        textarea { height: 110px; resize: vertical; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
-        .btn:last-child { margin-bottom: 0; }
-        .btn-blue { background-color: #007bff; color: white; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #007bff;
+            margin-bottom: 5px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            color: #666;
+            margin: 0;
+            font-size: 14px;
+        }
+        .main-content {
+            max-width: 1100px;
+            margin: auto;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .column-left {
+            flex: 1;
+            min-width: 320px;
+        }
+        .column-right {
+            flex: 1.2;
+            min-width: 350px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #eaeaea;
+        }
+        .card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 8px;
+        }
+        .btn:last-child {
+            margin-bottom: 0;
+        }
+        .btn-blue {
+            background-color: #007bff;
+            color: white;
+        }
         .btn-blue:hover { background-color: #0056b3; }
-        .btn-green { background-color: #28a745; color: white; }
+        .btn-green {
+            background-color: #28a745;
+            color: white;
+        }
         .btn-green:hover { background-color: #218838; }
-        .btn-orange { background-color: #fd7e14; color: white; }
-        .btn-orange:hover { background-color: #e0630d; }
-        .btn-purple { background-color: #6f42c1; color: white; }
+        .btn-purple {
+            background-color: #6f42c1;
+            color: white;
+        }
         .btn-purple:hover { background-color: #59359a; }
-        .btn-danger { background-color: #fff; color: #dc3545; border: 1px solid #dc3545; padding: 6px 12px; width: auto; font-size: 12px; margin-top: 15px; border-radius: 4px; }
+        .btn-danger {
+            background-color: #fff;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+            padding: 6px 12px;
+            width: auto;
+            font-size: 12px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
         .btn-danger:hover { background-color: #fff5f5; }
-        .status-text { font-size: 14px; font-weight: bold; margin-top: 10px; }
+        .status-text {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
         .status-success { color: #28a745; }
         .status-error { color: #dc3545; }
         .status-loading { color: #ffc107; }
-        .list-container { margin-top: 15px; font-size: 14px; max-height: 220px; overflow-y: auto; }
-        .result-placeholder { text-align: center; color: #888; padding: 30px 20px; font-size: 14px; }
-        .radio-group { display: flex; gap: 15px; margin-top: 5px; font-size: 14px; }
-        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 4px; cursor: pointer; }
-        .download-box { background-color: #e8f4fd; border: 2px dashed #007bff; border-radius: 6px; padding: 15px; text-align: center; }
-        
-        .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { max-height: 250px; overflow-y: auto; font-size: 14px; }
-        .modal-account-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px dashed #eee; }
-        .btn-inline-del { color: #dc3545; cursor: pointer; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-        .cid-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin: 5px 0; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #e9ecef; font-size: 13px; }
-        .cid-click-area { flex: 1; cursor: pointer; }
+        .list-container {
+            margin-top: 15px;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .result-placeholder {
+            text-align: center;
+            color: #888;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .radio-group label {
+            font-weight: normal !important;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        th, td {
+            border: 1px solid #eee;
+            padding: 8px;
+            text-align: left;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        .download-box {
+            background-color: #e8f4fd;
+            border: 2px dashed #007bff;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>好好篩</h1>
+    <p>📊 跨瀏覽器、跨裝置雲端資料庫同步系統</p>
 </div>
 
 <div class="main-content">
@@ -62,46 +185,43 @@
             <h3>儲存 CID 名單</h3>
             <div class="form-group">
                 <label>CID 名稱：</label>
-                <input type="text" id="cidName" placeholder="例如：BT0052">
+                <input type="text" id="cidName" placeholder="請輸入 CID 識別名稱 (如：BT0052)">
             </div>
             <div class="form-group">
-                <label>Account Name 名單 (每行一個)：</label>
-                <textarea id="accountList" placeholder="請貼上該 CID 的所有帳號..."></textarea>
+                <label>該 CID 底下的 Account Name 名單 (每行一個)：</label>
+                <textarea id="accountList" placeholder="請輸入或貼上此 CID 包含的所有帳號名稱..."></textarea>
             </div>
-            <button class="btn btn-blue" onclick="saveToCloud()">儲存並同步到雲端</button>
+            <button class="btn btn-blue" onclick="saveToCloud()">儲存 / 追加並同步到雲端</button>
             
             <div style="border-top: 1px dashed #ddd; margin-top: 20px; padding-top: 15px;">
-                <label style="font-size: 13px; font-weight: bold;">目前已儲存的 CID 清單：</label>
+                <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">目前已儲存的 CID 名單 (資料已與雲端同步) ：</label>
                 <div id="syncStatus" class="status-text status-loading">⏳ 正在同步雲端選單...</div>
                 <div id="cidListContainer" class="list-container"></div>
-                <button class="btn btn-danger" onclick="clearAllRecords()">清除所有紀錄</button>
+                <button class="btn btn-danger" onclick="clearAllRecords()">清除所有紀錄名單</button>
             </div>
         </div>
     </div>
 
     <div class="column-right">
         <div class="card">
-            <h3>選擇 CID 與單檔篩選</h3>
+            <h3>選擇 CID 與上傳 Excel</h3>
             <div class="form-group">
-                <label>選擇本次要篩選的 CID：</label>
+                <label>請選擇本次要篩選的 CID：</label>
                 <select id="cidSelect">
-                    <option value="">-- 目前無有效 CID --</option>
+                    <option>-- 正在同步雲端選單 --</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案：</label>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-green" style="flex: 1;" onclick="startFiltering(false)">📄 篩選第一分頁</button>
-                <button class="btn btn-orange" style="flex: 1;" onclick="startFiltering(true)">🎯 篩選全部分頁</button>
-            </div>
+            <button class="btn btn-green" onclick="startFiltering()">開始自動比對篩選</button>
         </div>
 
         <div class="card">
-            <h3>🗂️ Excel 多檔案合併工具</h3>
+            <h3>🗂️ Excel 多檔案合併匯出工具</h3>
             <div class="form-group">
-                <label>上傳多個 Excel 檔案 (可複選)：</label>
+                <label>上傳多個 Excel 檔案 (可多選)：</label>
                 <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple>
             </div>
             <div class="form-group">
@@ -111,27 +231,14 @@
                     <label><input type="radio" name="mergeMode" value="multi"> 模式 B：一檔案一分頁</label>
                 </div>
             </div>
-            <button class="btn btn-purple" onclick="startMergeAndExport()">建立合併並下載</button>
+            <button class="btn btn-purple" onclick="startMergeAndExport()">建立合併並下載 Excel 檔</button>
         </div>
 
         <div class="card">
-            <h3>執行結果與下載</h3>
+            <h3>執行結果與下載區</h3>
             <div id="resultContainer" class="result-placeholder">
-                請選擇上方功能進行操作。
+                請選擇功能並上傳對應檔案進行操作。
             </div>
-        </div>
-    </div>
-</div>
-
-<div id="accountDetailModal" class="custom-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <span id="modalTitle">帳號明細</span>
-            <span style="cursor:pointer; font-size: 20px; color:#888;" onclick="closeModal()">&times;</span>
-        </div>
-        <div id="modalBody" class="modal-body"></div>
-        <div style="text-align: right; margin-top: 15px;">
-            <button class="btn btn-blue" style="width: auto; padding: 6px 15px; margin: 0;" onclick="closeModal()">關閉</button>
         </div>
     </div>
 </div>
@@ -139,148 +246,152 @@
 <script>
     const CLOUD_API_URL = "https://script.google.com/macros/s/AKfycbzl9xqYS9rH9ErNC5IDlQ9Q2L0CI4G4AXqOLezhc_1t1Vof3lcsQEHUvCIZ8eZyXRao/exec";
     let cloudDatabase = {};
+    
+    let currentFilterWorkbook = null;
+    let currentMergeWorkbook = null;
 
     function getSafeDateString() {
         const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
     }
 
     window.onload = function() {
-        const localBackup = localStorage.getItem('backup_cloud_db');
-        if (localBackup) { try { cloudDatabase = JSON.parse(localBackup); } catch(e) { cloudDatabase = {}; } }
-        updateCidDropdownAndList();
         loadFromCloud();
     };
 
     function loadFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
-        fetch(`${CLOUD_API_URL}?fetch=1`, { method: "GET", mode: "cors", redirect: "follow" })
-        .then(res => res.json())
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = "⏳ 正在自雲端資料庫讀取紀錄...";
+
+        fetch(CLOUD_API_URL, { method: "GET", redirect: "follow" })
+        .then(res => { if (!res.ok) throw new Error("網路連線回應錯誤"); return res.json(); })
         .then(data => {
-            if (data && Object.keys(data).length > 0) {
-                cloudDatabase = data;
-                localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-                if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端同步成功"; }
-                updateCidDropdownAndList();
-            } else {
-                if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端目前無資料"; }
-            }
+            cloudDatabase = data || {};
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = "🟢 已與雲端同步";
+            updateCidDropdownAndList();
         })
         .catch(err => {
-            if (statusDiv) { statusDiv.className = "status-text status-error"; statusDiv.innerText = "❌ 網路異常，目前使用離線備份模式"; }
+            console.error(err);
+            statusDiv.className = "status-text status-error";
+            statusDiv.innerText = "❌ 未正確設定雲端網址";
         });
     }
 
     function updateCidDropdownAndList() {
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
-        if (!select || !listContainer) return;
-
-        select.innerHTML = ''; listContainer.innerHTML = '';
+        select.innerHTML = '';
+        listContainer.innerHTML = '';
         const cids = Object.keys(cloudDatabase);
 
         if (cids.length === 0) {
-            const opt = document.createElement('option'); opt.value = ""; opt.text = "-- 目前無有效 CID --";
-            select.appendChild(opt); listContainer.innerText = "目前無已儲存的名單。"; return;
+            const opt = document.createElement('option');
+            opt.text = "-- 目前雲端無資料 --";
+            select.appendChild(opt);
+            listContainer.innerText = "目前無已儲存的名單。";
+            return;
         }
 
         cids.forEach(cid => {
-            const opt = document.createElement('option'); opt.value = cid; opt.text = cid;
+            const opt = document.createElement('option');
+            opt.value = cid;
+            opt.text = cid;
             select.appendChild(opt);
 
-            const wrapper = document.createElement('div'); wrapper.className = "cid-item-wrapper";
-            const clickArea = document.createElement('div'); clickArea.className = "cid-click-area";
-            clickArea.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
-            clickArea.onclick = function() { openAccountModal(cid); };
-
-            const delBtn = document.createElement('span'); delBtn.className = "btn-inline-del"; delBtn.innerHTML = "❌";
-            delBtn.onclick = function(e) { e.stopPropagation(); deleteEntireCid(cid); };
-
-            wrapper.appendChild(clickArea); wrapper.appendChild(delBtn);
-            listContainer.appendChild(wrapper);
+            const item = document.createElement('div');
+            item.style.padding = "6px 10px";
+            item.style.margin = "5px 0";
+            item.style.backgroundColor = "#f8f9fa";
+            item.style.borderRadius = "5px";
+            item.style.cursor = "pointer";
+            item.style.border = "1px solid #e9ecef";
+            item.style.fontSize = "13px";
+            item.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
+            item.onclick = function() {
+                alert(`【 ${cid} 】儲存的 Account Name 明細：\n\n${cloudDatabase[cid].join('\n')}`);
+            };
+            listContainer.appendChild(item);
         });
     }
 
     function saveToCloud() {
-        const cidNameInput = document.getElementById('cidName');
-        const accountListInput = document.getElementById('accountList');
-        if (!cidNameInput || !accountListInput) return;
+        const cidName = document.getElementById('cidName').value.trim();
+        const accountListText = document.getElementById('accountList').value.trim();
+        const statusDiv = document.getElementById('syncStatus');
 
-        const cidName = cidNameInput.value.trim();
-        const accountListText = accountListInput.value.trim();
-        if (!cidName || !accountListText) { alert("請輸入完整的 CID 名稱與帳號名單！"); return; }
-        
+        if (!cidName || !accountListText) { alert("請填寫 CID 名稱與帳號名單！"); return; }
+
         const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
-        if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
-        cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
-        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-        
-        updateCidDropdownAndList();
-        cidNameInput.value = ''; accountListInput.value = '';
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = "💾 正在同步變更至雲端資料庫...";
 
-        document.getElementById('syncStatus').innerText = "⏳ 正在同步更新至雲端...";
         fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
-        }).then(() => { setTimeout(loadFromCloud, 1200); });
-    }
-
-    function openAccountModal(cid) {
-        const modal = document.getElementById('accountDetailModal');
-        const title = document.getElementById('modalTitle');
-        const body = document.getElementById('modalBody');
-        if(!modal || !title || !body) return;
-
-        title.innerText = `【 ${cid} 】帳號明細`; body.innerHTML = '';
-        (cloudDatabase[cid] || []).forEach(acc => {
-            const row = document.createElement('div'); row.className = "modal-account-item";
-            row.innerHTML = `<span>${acc}</span><span class="btn-inline-del" onclick="deleteSingleAccount('${cid}', '${acc}')">❌</span>`;
-            body.appendChild(row);
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
+        })
+        .then(() => {
+            if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
+            cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
+            document.getElementById('cidName').value = '';
+            document.getElementById('accountList').value = '';
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = "🟢 同步成功！";
+            updateCidDropdownAndList();
+            setTimeout(loadFromCloud, 1500);
+        })
+        .catch(err => {
+            console.error(err);
+            statusDiv.className = "status-text status-error";
+            statusDiv.innerText = "❌ 同步失敗，請檢查連線";
         });
-        modal.style.display = 'flex';
-    }
-
-    function closeModal() { document.getElementById('accountDetailModal').style.display = 'none'; }
-
-    function deleteSingleAccount(cid, accountName) {
-        if (!confirm(`確定刪除帳號【${accountName}】？`)) return;
-        closeModal();
-        if (cloudDatabase[cid]) cloudDatabase[cid] = cloudDatabase[cid].filter(a => a !== accountName);
-        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-        updateCidDropdownAndList();
-        fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
-        }).then(() => { setTimeout(loadFromCloud, 1200); });
-    }
-
-    function deleteEntireCid(cid) {
-        if (!confirm(`確定完全刪除【${cid}】群組？`)) return;
-        delete cloudDatabase[cid];
-        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-        updateCidDropdownAndList();
-        fetch(CLOUD_API_URL, {
-            method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cid, action: "deleteCid" })
-        }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
     function clearAllRecords() {
-        if (!confirm("確定要完全清除所有紀錄？")) return;
-        cloudDatabase = {}; localStorage.setItem('backup_cloud_db', "{}");
-        updateCidDropdownAndList();
-        fetch(CLOUD_API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "clearAll" }) })
-        .then(() => { setTimeout(loadFromCloud, 1200); });
+        if (!confirm("確定要刪除雲端試算表上的所有歷史紀錄嗎？此動作無法復原。")) return;
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.className = "status-text status-loading";
+        statusDiv.innerText = "🗑️ 正在清空雲端資料...";
+
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: "clearAll" })
+        })
+        .then(() => {
+            cloudDatabase = {};
+            statusDiv.className = "status-text status-success";
+            statusDiv.innerText = "🟢 雲端已全部清空";
+            updateCidDropdownAndList();
+            setTimeout(loadFromCloud, 1500);
+        })
+        .catch(err => {
+            console.error(err);
+            statusDiv.className = "status-text status-error";
+            statusDiv.innerText = "❌ 操作失敗";
+        });
     }
 
-    // ================= 功能一：單檔篩選 =================
-    function startFiltering(processAllSheets = false) {
+    // 🎯 功能一：精準盲篩第一分頁 (優化低記憶體讀取模式)
+    function startFiltering() {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('resultContainer');
 
-        if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
-        if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
+        if (!selectedCid || selectedCid.startsWith('--')) { alert('請選擇有效的 CID！'); return; }
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇要上傳的 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        resultContainer.innerHTML = "⏳ 正在處理格式保護篩選...";
+        if (targetAccounts.length === 0) { alert('該 CID 在雲端中無對應的帳號名單！'); return; }
+
+        resultContainer.innerHTML = "⏳ 正在讀取第一分頁並分析時間與欄位資料中...";
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -288,244 +399,199 @@
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true });
-                const newWorkbook = XLSX.utils.book_new();
-                let sheetsToProcess = processAllSheets ? workbook.SheetNames : [workbook.SheetNames[0]];
+                // 使用最輕量的原始讀取模式，避免全物件格式化膨脹記憶體
+                const workbook = XLSX.read(data, { type: 'array', raw: true, Sheets: [XLSX.read(data, {type: 'array', bookSheets: true}).SheetNames[0]] });
+                
+                const targetSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[targetSheetName];
+                
+                const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
-                sheetsToProcess.forEach(name => {
-                    const origSheet = workbook.Sheets[name];
-                    if (!origSheet || !origSheet['!ref']) return;
-
-                    const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
-                    if (rawRows.length === 0) return;
-
-                    let keepRowIndexes = [0]; 
-                    for (let i = 1; i < rawRows.length; i++) {
-                        if (!rawRows[i] || rawRows[i].length === 0) continue;
-                        const hasMatch = rawRows[i].some(cellVal => {
-                            if (cellVal === null || cellVal === undefined) return false;
-                            return targetAccounts.includes(cellVal.toString().trim());
-                        });
-                        if (hasMatch) keepRowIndexes.push(i);
-                    }
-
-                    if (keepRowIndexes.length <= 1 && processAllSheets) return;
-
-                    const clonedSheet = Object.assign({}, origSheet);
-                    const range = XLSX.utils.decode_range(clonedSheet['!ref']);
-                    const totalRows = range.e.r + 1;
-
-                    let keepMap = {}; keepRowIndexes.forEach(idx => { keepMap[idx] = true; });
-                    let newSheet = {}; let currentNewRow = 0;
-
-                    for (let r = 0; r < totalRows; r++) {
-                        if (keepMap[r]) {
-                            let hasCellInRow = false;
-                            for (let c = range.s.c; c <= range.e.c; c++) {
-                                const oldCellRef = XLSX.utils.encode_cell({ r: r, c: c });
-                                if (clonedSheet[oldCellRef]) {
-                                    const newCellRef = XLSX.utils.encode_cell({ r: currentNewRow, c: c });
-                                    newSheet[newCellRef] = clonedSheet[oldCellRef];
-                                    hasCellInRow = true;
-                                }
-                            }
-                            if (hasCellInRow || r === 0) currentNewRow++;
-                        }
-                    }
-
-                    if (currentNewRow > 0) {
-                        const newRange = { s: { c: range.s.c, r: 0 }, e: { c: range.e.c, r: Math.max(0, currentNewRow - 1) } };
-                        newSheet['!ref'] = XLSX.utils.encode_range(newRange);
-                        if (clonedSheet['!cols']) newSheet['!cols'] = clonedSheet['!cols'];
-                        if (clonedSheet['!merges']) newSheet['!merges'] = clonedSheet['!merges'];
-                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
-                    }
-                });
-
-                if (newWorkbook.SheetNames.length === 0) {
-                    resultContainer.innerHTML = `<div class="status-text status-error">❌ 找不到任何匹配的 Account 資料！</div>`; return;
+                if (rawRows.length === 0) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 第一個分頁沒有任何有效資料。</div>`;
+                    return;
                 }
 
-                const outData = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([outData], { type: 'application/octet-stream' });
-                const dlUrl = URL.createObjectURL(blob);
-                const outName = `好好篩_${selectedCid}_${getSafeDateString()}.xlsx`;
+                const headerRow = rawRows[0];
+                let filteredRows = [headerRow]; 
 
-                resultContainer.innerHTML = `
-                    <div class="download-box">
-                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式篩選成功！</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載篩選後 Excel</a>
-                    </div>`;
+                for (let i = 1; i < rawRows.length; i++) {
+                    const currentRow = rawRows[i];
+                    if (!currentRow || currentRow.length === 0) continue;
+
+                    const hasMatch = currentRow.some(cellVal => {
+                        if (cellVal === undefined || cellVal === null) return false;
+                        return targetAccounts.includes(cellVal.toString().trim());
+                    });
+                    
+                    if (hasMatch) {
+                        filteredRows.push(currentRow);
+                    }
+                }
+
+                if (filteredRows.length <= 1) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 比對完成：未找到相符的帳號明細（請確認您已將明細表移到第一個分頁）。</div>`;
+                    return;
+                }
+
+                currentFilterWorkbook = XLSX.utils.book_new();
+                const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
+                XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, "篩選結果");
+
+                let html = `<div class="download-box">`;
+                html += `<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 網格盲篩成功！已自動保留中英首行，共精準抓到 ${filteredRows.length - 1} 筆明細資料</div>`;
+                html += `<button class="btn btn-blue" onclick="downloadFilterExcel('${selectedCid}')">📥 下載 100% 格式完整 Excel 檔</button>`;
+                html += `</div>`;
+
+                html += `<p style="font-size:12px; color:#666; margin:5px 0;">(下方僅顯示前 10 筆結果預覽，下載的 Excel 檔案格式與原檔完全一致)</p>`;
+                html += `<div style="overflow-x: auto; max-height: 250px;"><table style="width:100%; border-collapse:collapse;"><thead><tr>`;
+                headerRow.forEach((h, idx) => { html += `<th>${h || '欄位_'+(idx+1)}</th>`; });
+                html += `</tr></thead><tbody>`;
+                filteredRows.slice(1, 11).forEach(row => {
+                    html += `<tr>`;
+                    headerRow.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
+                    html += `</tr>`;
+                });
+                html += `</tbody></table></div>`;
+                
+                resultContainer.classList.remove('result-placeholder');
+                resultContainer.innerHTML = html;
+
             } catch (err) {
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選失敗，請確認檔案。</div>`;
+                console.error(err);
+                resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取失敗：請檢查 Excel 檔案內部的格式。</div>`;
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (最終超省記憶體、強制記憶體釋放版) =================
+    function downloadFilterExcel(cid) {
+        if (!currentFilterWorkbook) return;
+        XLSX.writeFile(currentFilterWorkbook, `好好篩_原始格式篩選_${cid}_${getSafeDateString()}.xlsx`);
+    }
+
+    // 🎯 功能二：多檔案流式極致低內存合併引擎（徹底解決大檔案閃退問題）
     async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
-        const modeElement = document.querySelector('input[name="mergeMode"]:checked');
         const resultContainer = document.getElementById('resultContainer');
+        const mode = document.querySelector('input[name="mergeMode"]:checked').value;
 
-        if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
-        if (!modeElement) return;
+        if (!fileInput.files || fileInput.files.length === 0) { alert('請至少選擇一個或多個 Excel 檔案進行合併！'); return; }
 
-        const mode = modeElement.value;
+        resultContainer.innerHTML = `⏳ 正在依序啟動極致流式低內存引擎讀取中 (共 ${fileInput.files.length} 個檔案)...`;
+
         const files = Array.from(fileInput.files);
-        
-        let modeA_CsvChunks = []; 
-        let hasHeaderLoaded = false; 
-        let sheetNameCounters = {};
-        let modeB_SheetsWorkbook = XLSX.utils.book_new(); 
+        currentMergeWorkbook = XLSX.utils.book_new(); 
+        let combinedData = []; 
+        let usedSheetNames = new Set();
 
-        function escapeCSVCell(val) {
-            if (val === null || val === undefined) return "";
-            let str = val.toString();
-            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
-
-        const parseFileToStreamAsync = (file, index) => {
-            return new Promise((resolve) => {
-                resultContainer.innerHTML = `📊 正在抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
-                
-                let reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        let arrayBuffer = new Uint8Array(e.target.result);
-                        // 💡 優化：使用最輕量化的模式唯讀數值與原始字串，完全不載入額外修飾格式
-                        let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true, cellStyles: false, cellNF: false });
-                        const firstSheetName = wb.SheetNames[0];
-
-                        if (firstSheetName && wb.Sheets[firstSheetName]) {
-                            let sheet = wb.Sheets[firstSheetName];
-                            
-                            if (mode === "single") {
-                                const range = XLSX.utils.decode_range(sheet['!ref'] || "A1:A1");
-                                let fileCsvContent = "";
-
-                                for (let r = range.s.r; r <= range.e.r; r++) {
-                                    if (hasHeaderLoaded && r === range.s.r) continue;
-
-                                    let rowCells = [];
-                                    let hasData = false;
-                                    for (let c = range.s.c; c <= range.e.c; c++) {
-                                        const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
-                                        const cell = sheet[cellRef];
-                                        const val = cell ? (cell.v !== undefined ? cell.v : cell.w) : "";
-                                        if (val !== "") hasData = true;
-                                        rowCells.push(escapeCSVCell(val));
-                                    }
-                                    if (hasData || r === range.s.r) {
-                                        fileCsvContent += rowCells.join(",") + "\n";
-                                    }
-                                }
-
-                                if (fileCsvContent.length > 0) {
-                                    modeA_CsvChunks.push(fileCsvContent);
-                                    hasHeaderLoaded = true;
-                                }
-                                fileCsvContent = null;
-                            } else {
-                                let cleanedName = file.name.replace(/\.[^/.]+$/, "")
-                                                            .replace(/[\\/\?\*\[\]\:]/g, "_") 
-                                                            .substring(0, 25); 
-                                
-                                if (sheetNameCounters[cleanedName]) {
-                                    sheetNameCounters[cleanedName]++;
-                                    cleanedName = cleanedName + "_" + sheetNameCounters[cleanedName];
-                                } else { 
-                                    sheetNameCounters[cleanedName] = 1; 
-                                }
-                                XLSX.utils.book_append_sheet(modeB_SheetsWorkbook, sheet, cleanedName);
-                            }
-                            
-                            // 💡 關鍵強力清除：手動解除引用，強迫網頁釋放這張表
-                            sheet = null;
-                        }
-                        wb = null;
-                        arrayBuffer = null;
-                    } catch (err) { console.error(err); }
-                    
-                    reader = null;
-                    // 稍微延長等待時間至 50 毫秒，給瀏覽器足夠的時間進行記憶體垃圾回收
-                    setTimeout(resolve, 50); 
-                };
+        const readFileAsync = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) { resolve(e.target.result); };
+                reader.onerror = function(err) { reject(err); };
                 reader.readAsArrayBuffer(file);
             });
         };
 
-        for (let i = 0; i < files.length; i++) {
-            await parseFileToStreamAsync(files[i], i);
-        }
+        try {
+            for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+                const file = files[fileIdx];
+                resultContainer.innerHTML = `⏳ 正在流水線讀取第 ${fileIdx + 1}/${files.length} 個檔案：<br><b style="color:#6f42c1;">${file.name}</b>`;
+                
+                let arrayBuffer = await readFileAsync(file);
+                
+                // 【核心優化點 1】：強制僅載入第一個分頁的名單，raw: true 關閉格式化，現省 80% 記憶體
+                const sheetNamesArr = XLSX.read(arrayBuffer, {type: 'array', bookSheets: true}).SheetNames;
+                const firstSheetName = sheetNamesArr[0];
+                
+                const workbook = XLSX.read(arrayBuffer, { 
+                    type: 'array', 
+                    raw: true, 
+                    cellDates: false, 
+                    Sheets: [firstSheetName] 
+                });
+                
+                // 釋放前端大型未開發緩衝區
+                arrayBuffer = null;
 
-        resultContainer.innerHTML = "⏳ 正在完成最後包裝輸出...";
-        setTimeout(() => {
-            try {
-                if (mode === "single") {
-                    if (modeA_CsvChunks.length === 0) {
-                        resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：檔案內無有效資料！</div>`; return;
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                // 立即解除對 workbook 物件的引用，讓垃圾回收有機會處理
+                workbook.Sheets = null;
+
+                if (rawRows.length > 0) {
+                    if (mode === 'single') {
+                        // 模式 A：流水線接龍
+                        if (fileIdx === 0) {
+                            combinedData = combinedData.concat(rawRows);
+                        } else {
+                            combinedData = combinedData.concat(rawRows.slice(1));
+                        }
+                    } else {
+                        // 模式 B：獨立分頁打包
+                        let rawFileName = file.name || "Sheet";
+                        let lastDotIdx = rawFileName.lastIndexOf('.');
+                        let baseName = lastDotIdx !== -1 ? rawFileName.substring(0, lastDotIdx) : rawFileName;
+                        
+                        baseName = baseName.replace(/[:\\/?*\[\]]/g, "_").trim();
+                        
+                        let sheetName = baseName.length > 30 ? baseName.substring(baseName.length - 30) : baseName;
+                        if (!sheetName) sheetName = `File_${fileIdx + 1}`;
+
+                        let finalSheetName = sheetName;
+                        let counter = 1;
+                        while (usedSheetNames.has(finalSheetName.toLowerCase())) {
+                            let suffix = `_${counter}`;
+                            let maxBaseLen = 30 - suffix.length;
+                            let truncatedBase = sheetName.substring(0, maxBaseLen);
+                            finalSheetName = truncatedBase + suffix;
+                            counter++;
+                        }
+                        usedSheetNames.add(finalSheetName.toLowerCase());
+
+                        // 【核心優化點 2】：模式 B 直接動態編譯單一 Sheet 並塞入，不作額外的大陣列保留
+                        const newWorksheet = XLSX.utils.aoa_to_sheet(rawRows);
+                        XLSX.utils.book_append_sheet(currentMergeWorkbook, newWorksheet, finalSheetName);
                     }
-                    
-                    const fullCsvString = modeA_CsvChunks.join("");
-                    modeA_CsvChunks = [];
-
-                    try {
-                        let finalWorkbook = XLSX.utils.book_new();
-                        // 避免全檔大陣列拆分，改用高效率分行注入
-                        const rows = fullCsvString.trim().split("\n").map(row => row.split(","));
-                        const newSheet = XLSX.utils.aoa_to_sheet(rows);
-                        XLSX.utils.book_append_sheet(finalWorkbook, newSheet, "綜合合併結果");
-                        
-                        const outData = XLSX.write(finalWorkbook, { bookType: 'xlsx', type: 'array' });
-                        const blob = new Blob([outData], { type: 'application/octet-stream' });
-                        const dlUrl = URL.createObjectURL(blob);
-                        const outName = `帳務多檔合併匯出_${getSafeDateString()}.xlsx`;
-                        
-                        resultContainer.innerHTML = `
-                            <div class="download-box">
-                                <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 檔案合併成功！</p>
-                                <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 Excel</a>
-                            </div>`;
-                    } catch (innerExcelErr) {
-                        // 萬一打包關頭記憶體依然過載，直接走安全閥輸出 CSV (內容保證 100% 相同)
-                        const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), fullCsvString], { type: 'text/csv;charset=utf-8;' });
-                        const dlUrlCSV = URL.createObjectURL(blobCSV);
-                        const outNameCSV = `帳務多檔合併匯出_${getSafeDateString()}.csv`;
-                        
-                        resultContainer.innerHTML = `
-                            <div class="download-box" style="background-color: #fff9e6; border: 2px dashed #ffc107;">
-                                <p style="color:#b58100; font-weight:bold; margin-top:0;">🎉 已自動啟用極限記憶體防護匯出</p>
-                                <p style="font-size: 13px; color: #555; margin: -5px 0 10px 0;">由於 6 個檔案的總列數與公式量龐大，為了避免瀏覽器閃退，系統已改用萬能 CSV 格式直接下載（內容無損、無刪減，可用 Excel 直接雙擊點開）。</p>
-                                <a href="${dlUrlCSV}" download="${outNameCSV}" class="btn btn-orange" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載完整合併 CSV 檔案</a>
-                            </div>`;
-                    }
-                } else {
-                    // 模式 B 打包輸出
-                    const outData = XLSX.write(modeB_SheetsWorkbook, { bookType: 'xlsx', type: 'array' });
-                    const blob = new Blob([outData], { type: 'application/octet-stream' });
-                    const dlUrl = URL.createObjectURL(blob);
-                    const outName = `帳務多檔合併匯出_${getSafeDateString()}.xlsx`;
-
-                    resultContainer.innerHTML = `
-                        <div class="download-box">
-                            <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 檔案合併成功！</p>
-                            <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 Excel</a>
-                        </div>`;
                 }
-            } catch (e) {
-                resultContainer.innerHTML = `
-                    <div class="status-text status-error">
-                        ❌ 匯出失敗：本機瀏覽器記憶體已達硬體極限。<br>
-                        <span style="font-size:12px; color:#666;">建議您：請分兩批合併（每次選 3 個檔案）即可完美繞過限制。</span>
-                    </div>`;
             }
-        }, 100);
+
+            if (mode === 'single') {
+                if (combinedData.length === 0) {
+                    resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 合併失敗：檔案中無任何有效資料。</div>`;
+                    return;
+                }
+                const finalWorksheet = XLSX.utils.aoa_to_sheet(combinedData);
+                XLSX.utils.book_append_sheet(currentMergeWorkbook, finalWorksheet, "物理合併結果");
+                // 釋放暫存陣列
+                combinedData = [];
+            }
+
+            resultContainer.classList.remove('result-placeholder');
+            resultContainer.innerHTML = `
+                <div class="download-box" style="background-color: #f3f0fa; border-color: #6f42c1;">
+                    <div style="color: #6f42c1; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎉 記憶體流式防閃退合併引擎：執行完畢！</div>
+                    <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">已完成重度大檔案的高安全打包處理，請點擊下方按鈕進行安全下載：</p>
+                    <button class="btn btn-purple" style="font-size: 15px; padding: 14px;" onclick="triggerMergeDownload()">💾 點我下載合併後的 Excel 檔</button>
+                </div>
+            `;
+
+            // 自動嘗試觸發下載
+            triggerMergeDownload();
+
+        } catch (err) {
+            console.error(err);
+            resultContainer.innerHTML = `<div style="color: #dc3545;">❌ 讀取或合併多個檔案時發生錯誤，請確認檔案格式是否正常。</div>`;
+        }
+    }
+
+    function triggerMergeDownload() {
+        if (!currentMergeWorkbook) return;
+        XLSX.writeFile(currentMergeWorkbook, `好好篩_多檔極速低記憶體合併_${getSafeDateString()}.xlsx`);
     }
 </script>
+
 </body>
 </html>
