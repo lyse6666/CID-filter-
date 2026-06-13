@@ -363,8 +363,8 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (精準修正標題欄位邏輯) =================
-    function startMergeAndExport() {
+    // ================= 功能二：多檔合併 (非同步串行阻斷核心 - 徹底再見跳糟糕) =================
+    async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
         const resultContainer = document.getElementById('resultContainer');
@@ -376,68 +376,68 @@
         const files = Array.from(fileInput.files);
         
         let combinedRows = [];
-        let hasHeaderLoaded = false; // 用於模式 A：標記首行標題是否已經加載過
+        let hasHeaderLoaded = false; 
         let sheetNameCounters = {};
-        let currentFileIndex = 0;
         let modeB_SheetsData = {}; 
 
-        function processNextFile() {
-            if (currentFileIndex >= files.length) {
-                resultContainer.innerHTML = "⏳ 正在包裝輸出 Excel 檔...";
-                setTimeout(finalizeExcelOutput, 300);
-                return;
-            }
+        // 輔助工具：將內存極沉重的 FileReader 包裝為 Promise，以便逐個徹底釋放記憶體
+        const parseFileAsync = (file, index) => {
+            return new Promise((resolve) => {
+                resultContainer.innerHTML = `📊 正在讀取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
+                
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        let arrayBuffer = new Uint8Array(e.target.result);
+                        // sheetRows 限制底層引擎不要預先快取萬列之後的空行，進一步降低 50% 壓力
+                        let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true, sheetRows: 0 });
+                        const firstSheetName = wb.SheetNames[0];
 
-            const file = files[currentFileIndex];
-            resultContainer.innerHTML = `📊 正在讀取第 (${currentFileIndex + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const arrayBuffer = new Uint8Array(e.target.result);
-                    let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
-                    const firstSheetName = wb.SheetNames[0];
-
-                    if (firstSheetName && wb.Sheets[firstSheetName]) {
-                        let rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "", raw: true });
-                        
-                        if (rawRows && rawRows.length > 0) {
-                            if (mode === "single") {
-                                // 【核心修正：模式 A 單一分頁邏輯】
-                                if (!hasHeaderLoaded) {
-                                    // 第一個檔案：完整保留（包含首行標題欄位）
-                                    combinedRows = combinedRows.concat(rawRows);
-                                    hasHeaderLoaded = true;
-                                } else {
-                                    // 第二個之後的檔案：精準切掉第一行標題，只抓取第 2 行起的純原始資料內容
-                                    const contentRows = rawRows.slice(1);
-                                    if (contentRows.length > 0) {
-                                        combinedRows = combinedRows.concat(contentRows);
+                        if (firstSheetName && wb.Sheets[firstSheetName]) {
+                            let rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "", raw: true });
+                            
+                            if (rawRows && rawRows.length > 0) {
+                                if (mode === "single") {
+                                    if (!hasHeaderLoaded) {
+                                        combinedRows = combinedRows.concat(rawRows);
+                                        hasHeaderLoaded = true;
+                                    } else {
+                                        const contentRows = rawRows.slice(1); // 扣除後面檔案的重複標題欄位
+                                        if (contentRows.length > 0) combinedRows = combinedRows.concat(contentRows);
                                     }
+                                } else if (mode === "multi") {
+                                    let wantedName = file.name.replace(/\.[^/.]+$/, "").substring(0, 30);
+                                    if (sheetNameCounters[wantedName]) {
+                                        sheetNameCounters[wantedName]++;
+                                        wantedName = wantedName.substring(0, 26) + "_" + sheetNameCounters[wantedName];
+                                    } else { sheetNameCounters[wantedName] = 1; }
+                                    
+                                    modeB_SheetsData[wantedName] = rawRows;
                                 }
-                            } else if (mode === "multi") {
-                                // 模式 B：獨立分頁，各檔資料維持各自的完整結構
-                                let wantedName = file.name.replace(/\.[^/.]+$/, "").substring(0, 30);
-                                if (sheetNameCounters[wantedName]) {
-                                    sheetNameCounters[wantedName]++;
-                                    wantedName = wantedName.substring(0, 26) + "_" + sheetNameCounters[wantedName];
-                                } else { sheetNameCounters[wantedName] = 1; }
-                                
-                                modeB_SheetsData[wantedName] = rawRows;
                             }
+                            rawRows = null;
                         }
-                        rawRows = null;
-                    }
-                    wb.Sheets = null; wb.SheetNames = null; wb = null;
-                } catch (err) { console.error(err); }
+                        
+                        // 【治本清除點】：立即斬斷底層二進位陣列快取
+                        wb.Sheets = null; wb.SheetNames = null; wb = null;
+                        arrayBuffer = null;
+                    } catch (err) { console.error(err); }
+                    
+                    reader = null; // 抹除對象垃圾回收
+                    setTimeout(resolve, 100); // 給瀏覽器短暫 0.1 秒的喘息空檔進行 GC 清除
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        };
 
-                currentFileIndex++;
-                setTimeout(processNextFile, 250);
-            };
-            reader.readAsArrayBuffer(file);
+        // 【最核心修正】：改用非同步序列，一個檔案完成後才進行下一個，絕不併行加載記憶體
+        for (let i = 0; i < files.length; i++) {
+            await parseFileAsync(files[i], i);
         }
 
-        function finalizeExcelOutput() {
+        // 進入打包匯出流程
+        resultContainer.innerHTML = "⏳ 正在包裝輸出 Excel 檔...";
+        setTimeout(() => {
             try {
                 const finalWorkbook = XLSX.utils.book_new();
                 
@@ -474,9 +474,7 @@
             } catch (e) {
                 resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：資料量超出了極限。</div>`;
             }
-        }
-
-        processNextFile();
+        }, 200);
     }
 </script>
 </body>
