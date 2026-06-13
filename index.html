@@ -363,7 +363,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (保證原始資料一字不漏) =================
+    // ================= 功能二：多檔合併 (精準修正標題欄位邏輯) =================
     function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
@@ -376,7 +376,7 @@
         const files = Array.from(fileInput.files);
         
         let combinedRows = [];
-        let globalHeader = null;
+        let hasHeaderLoaded = false; // 用於模式 A：標記首行標題是否已經加載過
         let sheetNameCounters = {};
         let currentFileIndex = 0;
         let modeB_SheetsData = {}; 
@@ -395,25 +395,28 @@
             reader.onload = function(e) {
                 try {
                     const arrayBuffer = new Uint8Array(e.target.result);
-                    // raw: true 配合 cellDates: true 完整抽離包含日期在內的所有原始真實數值
                     let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
                     const firstSheetName = wb.SheetNames[0];
 
                     if (firstSheetName && wb.Sheets[firstSheetName]) {
-                        // 修正：{ header: 1, defval: "" } 保證不論欄位多寬、不論格式如何，一律補齊所有邊界的欄位陣列，絕對不遺漏資料
                         let rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: "", raw: true });
                         
                         if (rawRows && rawRows.length > 0) {
                             if (mode === "single") {
-                                // 模式 A：單一分頁合併
-                                if (!globalHeader && rawRows[0]) {
-                                    globalHeader = rawRows[0]; 
-                                    combinedRows.push(globalHeader);
+                                // 【核心修正：模式 A 單一分頁邏輯】
+                                if (!hasHeaderLoaded) {
+                                    // 第一個檔案：完整保留（包含首行標題欄位）
+                                    combinedRows = combinedRows.concat(rawRows);
+                                    hasHeaderLoaded = true;
+                                } else {
+                                    // 第二個之後的檔案：精準切掉第一行標題，只抓取第 2 行起的純原始資料內容
+                                    const contentRows = rawRows.slice(1);
+                                    if (contentRows.length > 0) {
+                                        combinedRows = combinedRows.concat(contentRows);
+                                    }
                                 }
-                                const contentRows = rawRows.slice(1);
-                                if (contentRows.length > 0) combinedRows = combinedRows.concat(contentRows);
                             } else if (mode === "multi") {
-                                // 模式 B：分頁獨立，保留原檔名稱
+                                // 模式 B：獨立分頁，各檔資料維持各自的完整結構
                                 let wantedName = file.name.replace(/\.[^/.]+$/, "").substring(0, 30);
                                 if (sheetNameCounters[wantedName]) {
                                     sheetNameCounters[wantedName]++;
