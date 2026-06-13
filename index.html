@@ -401,4 +401,124 @@
         }
 
         cids.forEach(cid => {
-            const opt = document.createElement
+            const opt = document.createElement('option');
+            opt.value = cid; opt.text = cid;
+            select.appendChild(opt);
+
+            const wrapper = document.createElement('div');
+            wrapper.className = "cid-item-wrapper";
+
+            const clickArea = document.createElement('div');
+            clickArea.className = "cid-click-area";
+            clickArea.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
+            clickArea.onclick = function() { openAccountModal(cid); };
+
+            const delBtn = document.createElement('span');
+            delBtn.className = "btn-inline-del";
+            delBtn.innerHTML = "❌";
+            delBtn.onclick = function(e) { e.stopPropagation(); deleteEntireCid(cid); };
+
+            wrapper.appendChild(clickArea);
+            wrapper.appendChild(delBtn);
+            listContainer.appendChild(wrapper);
+        });
+    }
+
+    function saveToCloud() {
+        try {
+            const cidNameInput = document.getElementById('cidName');
+            const accountListInput = document.getElementById('accountList');
+            const statusDiv = document.getElementById('syncStatus');
+
+            if (!cidNameInput || !accountListInput) return;
+
+            const cidName = cidNameInput.value.trim();
+            const accountListText = accountListInput.value.trim();
+
+            if (!cidName || !accountListText) { alert("請輸入完整的 CID 名稱與帳號名單！"); return; }
+            const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
+            
+            if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
+            cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
+            localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+            
+            updateCidDropdownAndList();
+            cidNameInput.value = '';
+            accountListInput.value = '';
+
+            if (statusDiv) {
+                statusDiv.className = "status-text status-loading";
+                statusDiv.innerText = "⏳ 正在同步更新至雲端 Sheet...";
+            }
+
+            fetch(CLOUD_API_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
+            }).then(() => {
+                setTimeout(loadFromCloud, 1500);
+            }).catch(e => console.log("發送失敗", e));
+
+        } catch (error) {
+            alert("操作異常，請重新整理頁面。");
+        }
+    }
+
+    function openAccountModal(cid) {
+        const modal = document.getElementById('accountDetailModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        if(!modal || !title || !body) return;
+
+        title.innerText = `【 ${cid} 】儲存的 Account 明細`;
+        body.innerHTML = '';
+        const accounts = cloudDatabase[cid] || [];
+        accounts.forEach(acc => {
+            const row = document.createElement('div');
+            row.className = "modal-account-item";
+            row.innerHTML = `<span>${acc}</span><span class="btn-inline-del" onclick="deleteSingleAccount('${cid}', '${acc}')">❌</span>`;
+            body.appendChild(row);
+        });
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() { 
+        const modal = document.getElementById('accountDetailModal');
+        if(modal) modal.style.display = 'none'; 
+    }
+
+    function deleteSingleAccount(cid, accountName) {
+        if (!confirm(`確定要單獨刪除帳號【${accountName}】嗎？`)) return;
+        closeModal();
+        if (cloudDatabase[cid]) cloudDatabase[cid] = cloudDatabase[cid].filter(a => a !== accountName);
+        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ cid: cid, account: accountName, action: "deleteAccount" })
+        }).then(() => {
+            setTimeout(loadFromCloud, 1500);
+        });
+    }
+
+    function deleteEntireCid(cid) {
+        if (!confirm(`確定要完全刪除【${cid}】整個群組名單嗎？`)) return;
+        delete cloudDatabase[cid];
+        localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ cid: cid, action: "deleteCid" })
+        }).then(() => {
+            setTimeout(loadFromCloud, 1500);
+        });
+    }
+
+    function clearAllRecords() {
+        if (!confirm("確定要完全清除並重置所有歷史紀錄嗎？")) return;
+        cloudDatabase = {};
+        localStorage.setItem('backup_cloud_db', "{}");
+        updateCidDropdownAndList();
+        fetch(CLOUD_API_URL, { method: '
