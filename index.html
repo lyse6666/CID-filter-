@@ -363,7 +363,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (已修正唯讀屬性錯誤) =================
+    // ================= 功能二：多檔合併 (安全防護優化版) =================
     async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
@@ -380,7 +380,6 @@
         let sheetNameCounters = {};
         let modeB_SheetsWorkbook = XLSX.utils.book_new(); 
 
-        // 核心非同步讀取函數
         const parseFileToStreamAsync = (file, index) => {
             return new Promise((resolve) => {
                 resultContainer.innerHTML = `📊 正在高效率抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
@@ -413,34 +412,35 @@
                                 }
                                 csvChunk = null;
                             } else {
-                                // 模式 B：各自保留獨立分頁
-                                let wantedName = file.name.replace(/\.[^/.]+$/, "").substring(0, 30);
-                                if (sheetNameCounters[wantedName]) {
-                                    sheetNameCounters[wantedName]++;
-                                    wantedName = wantedName.substring(0, 26) + "_" + sheetNameCounters[wantedName];
-                                } else { sheetNameCounters[wantedName] = 1; }
-                                XLSX.utils.book_append_sheet(modeB_SheetsWorkbook, sheet, wantedName);
+                                // 💡 模式 B 安全優化：移除副檔名並剔除 Excel 不允許的特殊字元： \ / ? * [ ] :
+                                let cleanedName = file.name.replace(/\.[^/.]+$/, "")
+                                                            .replace(/[\\/\?\*\[\]\:]/g, "_") 
+                                                            .substring(0, 25); 
+                                
+                                if (sheetNameCounters[cleanedName]) {
+                                    sheetNameCounters[cleanedName]++;
+                                    cleanedName = cleanedName + "_" + sheetNameCounters[cleanedName];
+                                } else { 
+                                    sheetNameCounters[cleanedName] = 1; 
+                                }
+                                XLSX.utils.book_append_sheet(modeB_SheetsWorkbook, sheet, cleanedName);
                             }
                         }
-                        
-                        // 修正：直接清空變數參照即可，不更動內部唯讀屬性
                         wb = null;
                         arrayBuffer = null;
                     } catch (err) { console.error(err); }
                     
                     reader = null;
-                    setTimeout(resolve, 60); 
+                    setTimeout(resolve, 40); 
                 };
                 reader.readAsArrayBuffer(file);
             });
         };
 
-        // 序列執行
         for (let i = 0; i < files.length; i++) {
             await parseFileToStreamAsync(files[i], i);
         }
 
-        // 打包與安全寫出
         resultContainer.innerHTML = "⏳ 正在包裝輸出 Excel 檔...";
         setTimeout(() => {
             try {
@@ -459,7 +459,6 @@
                     finalWorkbook = modeB_SheetsWorkbook;
                 }
 
-                // 輸出為 Excel 檔案
                 const outData = XLSX.write(finalWorkbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([outData], { type: 'application/octet-stream' });
                 const dlUrl = URL.createObjectURL(blob);
@@ -471,9 +470,9 @@
                         <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 Excel</a>
                     </div>`;
             } catch (e) {
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：資料量超出了瀏覽器極限。</div>`;
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：總資料量超過瀏覽器單次打包上限 (請嘗試分批合併)。</div>`;
             }
-        }, 150);
+        }, 100);
     }
 </script>
 </body>
