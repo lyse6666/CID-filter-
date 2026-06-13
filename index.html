@@ -270,7 +270,7 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：單檔篩選 (未更動) =================
+    // ================= 功能一：單檔篩選 =================
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -363,7 +363,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔合併 (極致字串流優化 - 零物件消耗，永不崩潰) =================
+    // ================= 功能二：多檔合併 (已修正唯讀屬性錯誤) =================
     async function startMergeAndExport() {
         const fileInput = document.getElementById('mergeFiles');
         const modeElement = document.querySelector('input[name="mergeMode"]:checked');
@@ -375,10 +375,10 @@
         const mode = modeElement.value;
         const files = Array.from(fileInput.files);
         
-        let modeA_CsvStream = ""; // 模式A：純字串累加，完全不佔用多餘記憶體空間
+        let modeA_CsvStream = ""; 
         let hasHeaderLoaded = false; 
         let sheetNameCounters = {};
-        let modeB_SheetsWorkbook = XLSX.utils.book_new(); // 模式B專用
+        let modeB_SheetsWorkbook = XLSX.utils.book_new(); 
 
         // 核心非同步讀取函數
         const parseFileToStreamAsync = (file, index) => {
@@ -396,17 +396,14 @@
                             const sheet = wb.Sheets[firstSheetName];
                             
                             if (mode === "single") {
-                                // 【優化精髓】：直接將分頁壓成極輕量的 CSV 字串，完全不建立 JSON 物件！
                                 let csvChunk = XLSX.utils.sheet_to_csv(sheet, { FS: ",", RS: "\n" });
                                 
                                 if (csvChunk && csvChunk.trim().length > 0) {
                                     if (!hasHeaderLoaded) {
-                                        // 第一個檔案：完整保留（含首行標題欄位）
                                         modeA_CsvStream += csvChunk;
                                         if (!modeA_CsvStream.endsWith("\n")) modeA_CsvStream += "\n";
                                         hasHeaderLoaded = true;
                                     } else {
-                                        // 第二個以後的檔案：直接切掉第一行標題，效率極高
                                         const firstLineBreak = csvChunk.indexOf("\n");
                                         if (firstLineBreak !== -1) {
                                             modeA_CsvStream += csvChunk.substring(firstLineBreak + 1);
@@ -425,19 +422,20 @@
                                 XLSX.utils.book_append_sheet(modeB_SheetsWorkbook, sheet, wantedName);
                             }
                         }
-                        // 釋放單檔記憶體
-                        wb.Sheets = null; wb.SheetNames = null; wb = null;
+                        
+                        // 修正：直接清空變數參照即可，不更動內部唯讀屬性
+                        wb = null;
                         arrayBuffer = null;
                     } catch (err) { console.error(err); }
                     
                     reader = null;
-                    setTimeout(resolve, 60); // 留給瀏覽器微小的垃圾回收調度時間
+                    setTimeout(resolve, 60); 
                 };
                 reader.readAsArrayBuffer(file);
             });
         };
 
-        // 序列執行，絕不併行
+        // 序列執行
         for (let i = 0; i < files.length; i++) {
             await parseFileToStreamAsync(files[i], i);
         }
@@ -452,7 +450,6 @@
                     if (modeA_CsvStream.trim().length === 0) {
                         resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：檔案內無有效資料！</div>`; return;
                     }
-                    // 將完美的純字串一次性灌回分頁，安全無痛生成
                     finalWorkbook = XLSX.utils.book_new();
                     const rows = modeA_CsvStream.trim().split("\n").map(row => row.split(","));
                     const newSheet = XLSX.utils.aoa_to_sheet(rows);
