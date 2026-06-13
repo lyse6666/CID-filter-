@@ -307,7 +307,7 @@
                 <div class="radio-group">
                     <label><input type="radio" name="mergeMode" value="single" checked> 模式 A：合併至單一分頁</label>
                     <label><input type="radio" name="mergeMode" value="multi"> 模式 B：一檔案一分頁</label>
-                    <label><input type="radio" name="mergeMode" value="同名分頁合併"> 模式 C：依相同分頁名串聯</label>
+                    <label><input type="radio" name="mergeMode" value="same"> 模式 C：依相同分頁名串聯</label>
                 </div>
             </div>
             <button class="btn btn-purple" onclick="startMergeAndExport()">建立合併並下載 Excel 檔</button>
@@ -340,6 +340,7 @@
     
     let cloudDatabase = {};
     let currentFilterWorkbook = null;
+    let currentMergeWorkbook = null;
 
     function getSafeDateString() {
         const d = new Date();
@@ -546,24 +547,20 @@
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                // ⚠️ 關鍵設定：cellDates: true 完整保留原始 Excel 時間格式，不擅自更改數據
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true, raw: false });
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true });
                 
                 currentFilterWorkbook = XLSX.utils.book_new();
                 let summary = []; 
                 let validSheetCount = 0;
 
-                // 決定要跑全分頁還是只跑第一個分頁
                 const sheetsToProcess = processAllSheets ? workbook.SheetNames : [workbook.SheetNames[0]];
 
                 sheetsToProcess.forEach(name => {
                     const origSheet = workbook.Sheets[name];
-                    // 將 Sheet 轉換為二維陣列（僅用於分析哪幾行有相符帳號，不拿這個來建立新 Excel）
                     const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
                     if (rawRows.length === 0) return;
 
-                    // 找出符合條件的行號（扣除標題列第 1 行）
-                    let keepRowIndexes = [0]; // 永遠保留第 1 行標題
+                    let keepRowIndexes = [0]; 
                     let matchCount = 0;
 
                     for (let i = 1; i < rawRows.length; i++) {
@@ -578,24 +575,17 @@
                         }
                     }
 
-                    // 如果整頁都沒對中（除標題外沒數據），且是全分頁模式就直接剔除空分頁
                     if (matchCount === 0 && processAllSheets) return;
 
-                    // 🛠️ 物理整行刪除複製大法：克隆一個一模一樣的原始 Sheet 物件
                     const clonedSheet = Object.assign({}, origSheet);
-                    
-                    // 解析出當前 Sheet 的範圍
                     const range = XLSX.utils.decode_range(clonedSheet['!ref']);
                     const totalRows = range.e.r + 1;
 
-                    // 建立一個雜湊表紀錄哪些行是要留下的
                     let keepMap = {};
                     keepRowIndexes.forEach(idx => { keepMap[idx] = true; });
 
-                    // 刪除所有不符合條件的儲存格 (清除該行的所有欄位資訊)
                     for (let r = 0; r < totalRows; r++) {
                         if (!keepMap[r]) {
-                            // 這行不要，清空該行所有的儲存格
                             for (let c = range.s.c; c <= range.e.c; c++) {
                                 const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
                                 delete clonedSheet[cellRef];
@@ -603,7 +593,6 @@
                         }
                     }
 
-                    // 重新將留在 Sheet 裡的殘留資料「往上壓實對齊」，完全不破壞原始 cell 型態
                     let newSheet = {};
                     let currentNewRow = 0;
 
@@ -624,50 +613,4 @@
                         }
                     }
 
-                    // 更新壓縮後的 Sheet 邊界範圍 (!ref)
                     range.e.r = Math.max(0, currentNewRow - 1);
-                    newSheet['!ref'] = XLSX.utils.encode_range(range);
-
-                    // 保留原始 Sheet 的其他特殊屬性（如：欄寬 !cols）
-                    if (origSheet['!cols']) newSheet['!cols'] = origSheet['!cols'];
-                    if (origSheet['!merges']) newSheet['!merges'] = origSheet['!merges'];
-
-                    XLSX.utils.book_append_sheet(currentFilterWorkbook, newSheet, name);
-                    summary.push(`<li>分頁 [${name}]: 精準保留 <b>${matchCount}</b> 筆明細，格式100%對齊原始檔</li>`);
-                    validSheetCount++;
-                });
-
-                if (validSheetCount === 0) {
-                    resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">⚠️ 比對結束：在此 Excel 檔案中找不到任何相符的帳號資料。</div>`;
-                    return;
-                }
-
-                const modeText = processAllSheets ? "全分頁獨立" : "第一分頁";
-                const btnColor = processAllSheets ? "btn-orange" : "btn-green";
-
-                resultContainer.innerHTML = `
-                    <div class="download-box" style="background-color: #f7fbfd; border-color: #007bff;">
-                        <div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ 格式安全保護篩選完成！</div>
-                        <button class="btn ${btnColor}" onclick="downloadFilterExcel('${selectedCid}')">📥 下載【${modeText}】無損篩選結果 Excel</button>
-                    </div>
-                    <div class="report-list"><p style="font-weight:bold; margin:0; color:#495057;">各分頁數據報告：</p><ul>${summary.join('')}</ul></div>
-                `;
-            } catch (err) {
-                console.error(err);
-                resultContainer.innerHTML = `<div style="color: #dc3545; font-weight: bold; padding: 20px;">❌ 檔案無損解析失敗，請確認檔案是否毀損。</div>`;
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function downloadFilterExcel(cid) {
-        if (!currentFilterWorkbook) return;
-        XLSX.writeFile(currentFilterWorkbook, `好好篩_無損格式_${cid}_${getSafeDateString()}.xlsx`);
-    }
-
-    async function startMergeAndExport() {
-        alert("多檔案合併功能已就緒。");
-    }
-</script>
-</body>
-</html>
