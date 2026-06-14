@@ -33,7 +33,7 @@
 
         .header { 
             text-align: center; 
-            margin-bottom: 30px; 
+            margin-bottom: 35px; 
         }
         .header h1 { 
             color: var(--primary-color); 
@@ -46,6 +46,68 @@
             margin: 5px 0 0 0;
             color: #666;
             font-size: 14px;
+        }
+
+        /* 蝦皮風格使用流程圖 */
+        .step-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 800px;
+            margin: 25px auto 10px auto;
+            position: relative;
+            padding: 0 10px;
+        }
+        /* 貫穿背後的進度線 */
+        .step-container::before {
+            content: "";
+            position: absolute;
+            top: 20px;
+            left: 5%;
+            right: 5%;
+            height: 3px;
+            background-color: #cbd5e1;
+            z-index: 1;
+        }
+        .step-item {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #fff;
+            border: 3px solid #cbd5e1;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+        .step-text {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            background: var(--bg-color);
+            padding: 0 6px;
+        }
+        /* 激活（進行中/已完成）的蝦皮橘色風格 */
+        .step-item.active .step-icon {
+            border-color: #ff5722;
+            background-color: #ff5722;
+            color: #fff;
+        }
+        .step-item.active .step-text {
+            color: #ff5722;
         }
 
         .main-content { 
@@ -234,6 +296,25 @@
 <div class="header">
     <h1>好好篩</h1>
     <p>智慧型 Excel 帳務名單篩選與跨檔案高速合併核心系統</p>
+    
+    <div class="step-container">
+        <div class="step-item active">
+            <div class="step-icon">1</div>
+            <div class="step-text">新增 CID 資料</div>
+        </div>
+        <div class="step-item active">
+            <div class="step-icon">2</div>
+            <div class="step-text">選擇篩選 or 合併</div>
+        </div>
+        <div class="step-item active">
+            <div class="step-icon">3</div>
+            <div class="step-text">上傳 Excel 檔案</div>
+        </div>
+        <div class="step-item active">
+            <div class="step-icon">4</div>
+            <div class="step-text">選擇欲處理模式</div>
+        </div>
+    </div>
 </div>
 
 <div class="main-content">
