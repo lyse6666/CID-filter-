@@ -3,63 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好好篩</title>
+    <title>好好篩 - 高效能 Excel 處理工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
-        .header { text-align: center; margin-bottom: 25px; }
-        .header h1 { color: #007bff; margin: 0; font-size: 26px; }
-        .main-content { max-width: 1100px; margin: auto; display: flex; gap: 20px; flex-wrap: wrap; }
-        .column-left { flex: 1; min-width: 320px; }
-        .column-right { flex: 1.2; min-width: 350px; }
-        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eaeaea; }
-        .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px; color: #444; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
-        input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        textarea { height: 110px; resize: vertical; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --success-color: #28a745;
+            --success-hover: #218838;
+            --warning-color: #fd7e14;
+            --warning-hover: #e0630d;
+            --purple-color: #6f42c1;
+            --purple-hover: #59359a;
+            --danger-color: #dc3545;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e2e8f0;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 24px; 
+            line-height: 1.5;
+        }
+
+        .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .header h1 { 
+            color: var(--primary-color); 
+            margin: 0; 
+            font-size: 32px; 
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .main-content { 
+            max-width: 1200px; 
+            margin: auto; 
+            display: flex; 
+            gap: 24px; 
+            flex-wrap: wrap; 
+        }
+        .column-left { flex: 1; min-width: 340px; }
+        .column-right { flex: 1.4; min-width: 400px; }
+
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 12px; 
+            padding: 24px; 
+            margin-bottom: 24px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); 
+            border: 1px solid var(--border-color); 
+            position: relative;
+        }
+        .card h3 { 
+            margin-top: 0; 
+            margin-bottom: 20px; 
+            font-size: 18px; 
+            font-weight: 600;
+            border-bottom: 2px solid #f1f5f9; 
+            padding-bottom: 12px; 
+            color: #1e293b; 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group { margin-bottom: 18px; }
+        .form-group label { 
+            display: block; 
+            font-size: 14px; 
+            font-weight: 600; 
+            margin-bottom: 8px; 
+            color: #475569;
+        }
+
+        input[type="text"], select, textarea { 
+            width: 100%; 
+            padding: 11px 14px; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 14px; 
+            background-color: #f8fafc;
+            transition: all 0.2s;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus {
+            border-color: var(--primary-color);
+            background-color: #fff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+        }
+        textarea { height: 120px; resize: vertical; }
+
+        /* 拖曳上傳區優化 */
+        .upload-dropzone {
+            border: 2px dashed #cbd5e1;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .upload-dropzone:hover, .upload-dropzone.dragover {
+            border-color: var(--primary-color);
+            background: #f0f7ff;
+        }
+        .upload-dropzone p { margin: 0 0 8px 0; font-size: 14px; color: #64748b; }
+        .upload-dropzone span { font-size: 12px; color: #94a3b8; }
+        .upload-dropzone input[type="file"] {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+        }
+        .file-list-preview {
+            margin-top: 10px;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: #475569;
+            background: #f1f5f9;
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: none;
+        }
+
+        .btn { 
+            width: 100%; 
+            padding: 12px; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            margin-bottom: 10px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
         .btn:last-child { margin-bottom: 0; }
-        .btn-blue { background-color: #007bff; color: white; }
-        .btn-blue:hover { background-color: #0056b3; }
-        .btn-green { background-color: #28a745; color: white; }
-        .btn-green:hover { background-color: #218838; }
-        .btn-orange { background-color: #fd7e14; color: white; }
-        .btn-orange:hover { background-color: #e0630d; }
-        .btn-purple { background-color: #6f42c1; color: white; }
-        .btn-purple:hover { background-color: #59359a; }
-        .btn-danger { background-color: #fff; color: #dc3545; border: 1px solid #dc3545; padding: 6px 12px; width: auto; font-size: 12px; margin-top: 15px; border-radius: 4px; }
-        .btn-danger:hover { background-color: #fff5f5; }
-        .status-text { font-size: 14px; font-weight: bold; margin-top: 10px; }
-        .status-success { color: #28a745; }
-        .status-error { color: #dc3545; }
-        .status-loading { color: #ffc107; }
-        .list-container { margin-top: 15px; font-size: 14px; max-height: 220px; overflow-y: auto; }
-        .result-placeholder { text-align: center; color: #888; padding: 30px 20px; font-size: 14px; }
-        .radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; font-size: 14px; }
-        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-        .download-box { background-color: #e8f4fd; border: 2px dashed #007bff; border-radius: 6px; padding: 15px; text-align: center; }
+        .btn-blue { background-color: var(--primary-color); color: white; }
+        .btn-blue:hover { background-color: var(--primary-hover); }
+        .btn-green { background-color: var(--success-color); color: white; }
+        .btn-green:hover { background-color: var(--success-hover); }
+        .btn-orange { background-color: var(--warning-color); color: white; }
+        .btn-orange:hover { background-color: var(--warning-hover); }
+        .btn-purple { background-color: var(--purple-color); color: white; }
+        .btn-purple:hover { background-color: var(--purple-hover); }
         
-        .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { max-height: 250px; overflow-y: auto; font-size: 14px; }
-        .modal-account-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px dashed #eee; }
-        .btn-inline-del { color: #dc3545; cursor: pointer; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-        .cid-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin: 5px 0; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #e9ecef; font-size: 13px; }
-        .cid-click-area { flex: 1; cursor: pointer; }
+        .btn-danger { 
+            background-color: #fff; 
+            color: var(--danger-color); 
+            border: 1px solid var(--danger-color); 
+            padding: 6px 12px; 
+            width: auto; 
+            font-size: 12px; 
+            margin-top: 15px; 
+            border-radius: 6px; 
+        }
+        .btn-danger:hover { background-color: #fff5f5; }
+
+        /* 狀態標籤與反饋區 */
+        .status-text { font-size: 13px; font-weight: 600; margin-top: 12px; padding: 8px 12px; border-radius: 6px; display: inline-block; }
+        .status-success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .status-error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .status-loading { color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; }
+        
+        /* 區塊內部即時結果區 */
+        .inline-result-container { margin-top: 15px; }
+
+        .list-container { 
+            margin-top: 15px; 
+            font-size: 14px; 
+            max-height: 240px; 
+            overflow-y: auto; 
+            border: 1px solid #edf2f7;
+            border-radius: 8px;
+            padding: 5px;
+            background: #fafafa;
+        }
+        
+        .radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 5px; font-size: 14px; }
+        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; transition: all 0.2s; }
+        .radio-group label:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        .radio-group input[type="radio"]:checked + span { font-weight: bold; color: var(--primary-color); }
+        
+        .download-box { 
+            background-color: #f0f9ff; 
+            border: 2px dashed #bae6fd; 
+            border-radius: 8px; 
+            padding: 16px; 
+            text-align: center; 
+            margin-top: 15px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 彈出視窗密合度調校 */
+        .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-content { background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 480px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
+        .modal-body { max-height: 280px; overflow-y: auto; font-size: 14px; }
+        .modal-account-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px dashed #e2e8f0; transition: background 0.15s; }
+        .modal-account-item:hover { background: #f8fafc; }
+        .btn-inline-del { color: var(--danger-color); cursor: pointer; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 14px; transition: transform 0.1s; }
+        .btn-inline-del:hover { transform: scale(1.2); }
+        
+        .cid-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 6px 0; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); transition: all 0.2s; }
+        .cid-item-wrapper:hover { border-color: var(--primary-color); background-color: #f0f7ff; }
+        .cid-click-area { flex: 1; cursor: pointer; font-weight: 500; color: #334155; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>好好篩</h1>
+    <p>智慧型 Excel 帳務名單篩選與跨檔案高速合併核心系統</p>
 </div>
 
 <div class="main-content">
     <div class="column-left">
         <div class="card">
-            <h3>儲存 CID 名單</h3>
+            <h3>📝 儲存 CID 名單</h3>
             <div class="form-group">
                 <label>CID 名稱：</label>
                 <input type="text" id="cidName" placeholder="例如：BT0052">
@@ -68,20 +248,20 @@
                 <label>Account Name 名單 (每行一個)：</label>
                 <textarea id="accountList" placeholder="請貼上該 CID 的所有帳號..."></textarea>
             </div>
-            <button class="btn btn-blue" onclick="saveToCloud()">儲存並同步到雲端</button>
+            <button class="btn btn-blue" onclick="saveToCloud()">💾 儲存並同步到雲端</button>
             
-            <div style="border-top: 1px dashed #ddd; margin-top: 20px; padding-top: 15px;">
-                <label style="font-size: 13px; font-weight: bold;">目前已儲存的 CID 清單：</label>
+            <div style="border-top: 1px dashed #cbd5e1; margin-top: 24px; padding-top: 18px;">
+                <label style="font-size: 14px; font-weight: bold; color: #475569;">📋 目前已儲存的 CID 清單：</label>
                 <div id="syncStatus" class="status-text status-loading">⏳ 正在同步雲端選單...</div>
                 <div id="cidListContainer" class="list-container"></div>
-                <button class="btn btn-danger" onclick="clearAllRecords()">清除所有紀錄</button>
+                <button class="btn btn-danger" onclick="clearAllRecords()">🗑️ 清除所有紀錄</button>
             </div>
         </div>
     </div>
 
     <div class="column-right">
         <div class="card">
-            <h3>選擇 CID 與單檔篩選</h3>
+            <h3>🎯 選擇 CID 與單檔篩選</h3>
             <div class="form-group">
                 <label>選擇本次要篩選的 CID：</label>
                 <select id="cidSelect">
@@ -90,19 +270,30 @@
             </div>
             <div class="form-group">
                 <label>上傳待篩選的原始 Excel 檔案：</label>
-                <input type="file" id="excelFile" accept=".xlsx, .xls">
+                <div class="upload-dropzone" id="dropzoneFilter">
+                    <p>拖曳 Excel 檔案至此處，或<span>點擊瀏覽檔案</span></p>
+                    <span id="filterFileNotice">支援 .xlsx, .xls 格式</span>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="handleFileSelectNotice('excelFile', 'filterFileNotice', 'filterPreviewList')">
+                </div>
+                <div id="filterPreviewList" class="file-list-preview"></div>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 12px; margin-top: 15px;">
                 <button class="btn btn-green" style="flex: 1;" onclick="startFiltering(false)">📄 篩選第一分頁</button>
-                <button class="btn btn-orange" style="flex: 1;" onclick="startFiltering(true)">🎯 篩選全部分頁</button>
+                <button class="btn btn-orange" style="flex: 1;" onclick="startFiltering(true)">✨ 篩選全部分頁</button>
             </div>
+            <div id="filterResultContainer" class="inline-result-container"></div>
         </div>
 
         <div class="card">
             <h3>📂 Excel 多檔案合併工具</h3>
             <div class="form-group">
                 <label>上傳多個 Excel 檔案 (可複選)：</label>
-                <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple>
+                <div class="upload-dropzone" id="dropzoneMerge">
+                    <p>拖曳多個 Excel 檔案至此處，或<span>點擊批次選取</span></p>
+                    <span id="mergeFileNotice">可以按住 Ctrl 或 Shift 鍵進行多選</span>
+                    <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple onchange="handleFileSelectNotice('mergeFiles', 'mergeFileNotice', 'mergePreviewList')">
+                </div>
+                <div id="mergePreviewList" class="file-list-preview"></div>
             </div>
             <div class="form-group">
                 <label>處理模式選擇：</label>
@@ -117,14 +308,8 @@
                     </label>
                 </div>
             </div>
-            <button class="btn btn-purple" onclick="executeMergeTool()">開始建立合併並下載</button>
-        </div>
-
-        <div class="card">
-            <h3>執行結果與下載</h3>
-            <div id="resultContainer" class="result-placeholder">
-                請選擇上方功能進行操作。
-            </div>
+            <button class="btn btn-purple" style="margin-top: 15px;" onclick="executeMergeTool()">⚡ 開始建立合併並下載</button>
+            <div id="mergeResultContainer" class="inline-result-container"></div>
         </div>
     </div>
 </div>
@@ -133,11 +318,11 @@
     <div class="modal-content">
         <div class="modal-header">
             <span id="modalTitle">帳號明細</span>
-            <span style="cursor:pointer; font-size: 20px; color:#888;" onclick="closeModal()">&times;</span>
+            <span style="cursor:pointer; font-size: 24px; color:#94a3b8; line-height: 1;" onclick="closeModal()">&times;</span>
         </div>
         <div id="modalBody" class="modal-body"></div>
-        <div style="text-align: right; margin-top: 15px;">
-            <button class="btn btn-blue" style="width: auto; padding: 6px 15px; margin: 0;" onclick="closeModal()">關閉</button>
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn btn-blue" style="width: auto; padding: 8px 20px; margin: 0; display: inline-flex;" onclick="closeModal()">關閉</button>
         </div>
     </div>
 </div>
@@ -150,6 +335,41 @@
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
+
+    // 動態更新檔案上傳提示與檔案清單預覽
+    function handleFileSelectNotice(inputId, noticeId, previewId) {
+        const input = document.getElementById(inputId);
+        const notice = document.getElementById(noticeId);
+        const preview = document.getElementById(previewId);
+        if (!input || !input.files || input.files.length === 0) {
+            preview.style.display = 'none';
+            return;
+        }
+        
+        const count = input.files.length;
+        if (count === 1) {
+            notice.innerHTML = `🟢 已成功載入：<b>${input.files[0].name}</b>`;
+        } else {
+            notice.innerHTML = `🟢 已批次載入：<b>${count} 個 Excel 檔案</b>`;
+        }
+        
+        preview.innerHTML = "<b>已選取檔案清單：</b><ol style='margin:4px 0 0 0; padding-left:20px;'>";
+        for (let i = 0; i < input.files.length; i++) {
+            preview.innerHTML += `<li>${input.files[i].name} (${(input.files[i].size/1024).toFixed(1)} KB)</li>`;
+        }
+        preview.innerHTML += "</ol>";
+        preview.style.display = 'block';
+        input.parentElement.classList.add('dragover');
+    }
+
+    // 拖曳視覺增強效果對接
+    ['dropzoneFilter', 'dropzoneMerge'].forEach(id => {
+        const dz = document.getElementById(id);
+        if(!dz) return;
+        dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', () => { dz.classList.remove('dragover'); });
+        dz.addEventListener('drop', () => { dz.classList.remove('dragover'); });
+    });
 
     window.onload = function() {
         const localBackup = localStorage.getItem('backup_cloud_db');
@@ -280,13 +500,13 @@
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
-        const resultContainer = document.getElementById('resultContainer');
+        const resultContainer = document.getElementById('filterResultContainer');
 
         if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        resultContainer.innerHTML = "⏳ 正在處理格式保護篩選...";
+        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在處理格式保護篩選...</div>";
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -360,7 +580,7 @@
                 resultContainer.innerHTML = `
                     <div class="download-box">
                         <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式篩選成功！</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載篩選後 Excel</a>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載篩選後 Excel</a>
                     </div>`;
             } catch (err) {
                 resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選失敗，請確認檔案。</div>`;
@@ -382,7 +602,7 @@
     // [模式 A] 全部橫向合併至單一分頁
     async function startMergeToSingleCSV() {
         const fileInput = document.getElementById('mergeFiles');
-        const resultContainer = document.getElementById('resultContainer');
+        const resultContainer = document.getElementById('mergeResultContainer');
         if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
 
         const files = Array.from(fileInput.files);
@@ -391,7 +611,7 @@
 
         const parseFileAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `📊 [模式 A] 正在高速抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b>`;
+                resultContainer.innerHTML = `<div class='status-text status-loading'>📊 [模式 A] 正在高速抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b></div>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
@@ -430,7 +650,7 @@
 
         for (let i = 0; i < files.length; i++) { await parseFileAsync(files[i], i); }
 
-        resultContainer.innerHTML = "⏳ 正在直接封裝大數據 CSV 串流...";
+        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在直接封裝大數據 CSV 串流...</div>";
         setTimeout(() => {
             try {
                 if (csvChunksArray.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：無有效資料。</div>`; return; }
@@ -443,7 +663,7 @@
                     <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
                         <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 模式 A 合併成功！</p>
                         <p style="font-size: 12px; color: #666; margin-bottom: 12px;">已將所有檔案之全部分頁縱向接龍，匯出為防亂碼 CSV 檔。</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
                     </div>`;
             } catch (e) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：瀏覽器快取不足。</div>`; }
         }, 100);
@@ -452,7 +672,7 @@
     // [模式 B] 一檔案一分頁
     async function startMergeToSingleMultiSheetExcelWorkbook() {
         const fileInput = document.getElementById('mergeFiles');
-        const resultContainer = document.getElementById('resultContainer');
+        const resultContainer = document.getElementById('mergeResultContainer');
         if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
 
         const files = Array.from(fileInput.files);
@@ -463,7 +683,7 @@
 
         const parseFileToXmlSheetAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `⚙️ [模式 B] 正在無壓縮讀取並編譯分頁 (${index + 1} / ${files.length})：<br><b>${file.name}</b>`;
+                resultContainer.innerHTML = `<div class='status-text status-loading'>⚙️ [模式 B] 正在編譯分頁 (${index + 1} / ${files.length})：<br><b>${file.name}</b></div>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
@@ -501,7 +721,7 @@
                                         let isoString = cellVal.toISOString();
                                         xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${isoString}</Data></Cell>`;
                                     } else if (typeof cellVal === 'boolean') {
-                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Boolean">${cellVal ? 1 : 0}</Data></Cell>';
+                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Boolean">${cellVal ? 1 : 0}</Data></Cell>`;
                                     } else {
                                         let cleanStr = cellVal.toString()
                                             .replace(/&/g, '&amp;')
@@ -528,7 +748,7 @@
 
         for (let i = 0; i < files.length; i++) { await parseFileToXmlSheetAsync(files[i], i); }
 
-        resultContainer.innerHTML = "⏳ 正在封裝多分頁活頁簿結構...";
+        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝多分頁活頁簿結構...</div>";
         setTimeout(() => {
             try {
                 if (xmlWorksheetsStream.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：未讀取到有效資料。</div>`; return; }
@@ -541,11 +761,11 @@
                 const outName = `帳務多檔合併_一檔案一分頁_${getSafeDateString()}.xls`;
 
                 resultContainer.innerHTML = `
-                    <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
+                    <div class="download-box" style="border-color: #007bff; background-color: #f0f9ff;">
                         <p style="color:#007bff; font-weight:bold; margin-top:0;">🎉 模式 B 整合成功！</p>
-                        <p style="font-size: 12px; color: #333; margin-bottom: 6px;">已成功將 <b>${files.length} 個檔案</b> 整合至同一個 Excel 檔案的不同分頁（Tab）中！</p>
-                        <p style="font-size: 11px; color: #fd7e14; margin-bottom: 12px;">⚠️ <b>開啟提示</b>：此為大數據高相容格式。第一次使用微軟 Excel 打開時，系統會提示「檔案格式與副檔名不符」，這是完全正常的，<b>請直接點選「是」放心開啟</b>，即可看見與原檔格式完全一模一樣的多分頁活頁簿！</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-block; width:auto; padding:10px 25px; text-decoration:none;">📥 下載整合後 Excel 檔</a>
+                        <p style="font-size: 12px; color: #333; margin-bottom: 6px;">已成功將 <b>${files.length} 個檔案</b> 整合至同一個 Excel 檔案的不同分頁中！</p>
+                        <p style="font-size: 11px; color: #fd7e14; margin-bottom: 12px;">⚠️ <b>開啟提示</b>：第一次使用微軟 Excel 打開時若提示「檔案格式與副檔名不符」，為微軟標準安全機制，<b>請點選「是」放心開啟</b>即可。</p>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-blue" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載整合後 Excel 檔</a>
                     </div>`;
             } catch (e) {
                 resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：數據庫緩衝區超出邊界。</div>`;
