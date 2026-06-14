@@ -99,7 +99,7 @@
         </div>
 
         <div class="card">
-            <h3>🗂️ Excel 多檔案處理工具</h3>
+            <h3>📂 Excel 多檔案合併工具</h3>
             <div class="form-group">
                 <label>上傳多個 Excel 檔案 (可複選)：</label>
                 <input type="file" id="mergeFiles" accept=".xlsx, .xls" multiple>
@@ -109,11 +109,11 @@
                 <div class="radio-group">
                     <label>
                         <input type="radio" id="modeSingle" name="mergeMode" value="single" checked>
-                        <span>模式 A：全部橫向合併至單一分頁 (大數據優化 ➔ 匯出為 CSV 檔)</span>
+                        <span>模式 A：合併至單一分頁</span>
                     </label>
                     <label>
                         <input type="radio" id="modeMulti" name="mergeMode" value="multi">
-                        <span>模式 B：一檔案一分頁 (防崩潰大數據優化 ➔ 集體打包為單一 Excel 多分頁檔)</span>
+                        <span>模式 B：一檔案一分頁</span>
                     </label>
                 </div>
             </div>
@@ -258,7 +258,6 @@
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // 完全不碰觸原始邏輯，確保您好不容易修好的功能 100% 健全
     function deleteEntireCid(cid) {
         if (!confirm(`確定完全刪除【${cid}】群組？`)) return;
         delete cloudDatabase[cid];
@@ -277,7 +276,7 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：單檔篩選 (核心功能，完整保留格式保護) =================
+    // ================= 功能一：單檔篩選 =================
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -376,11 +375,11 @@
         if (isSingleMode) {
             startMergeToSingleCSV(); 
         } else {
-            startMergeToSingleMultiSheetExcelWorkbook(); // 執行修正後真正的「單一檔案、多工作表分頁」
+            startMergeToSingleMultiSheetExcelWorkbook();
         }
     }
 
-    // [模式 A] 全部橫向合併至單一分頁 (大數據優化 CSV 串流接龍)
+    // [模式 A] 全部橫向合併至單一分頁
     async function startMergeToSingleCSV() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -450,7 +449,7 @@
         }, 100);
     }
 
-    // [模式 B 正確優化版] 真正將 6 個檔案打包進「同一個 Excel」裡面的獨立分頁頁籤 (Tab) 中！
+    // [模式 B] 一檔案一分頁
     async function startMergeToSingleMultiSheetExcelWorkbook() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('resultContainer');
@@ -459,11 +458,9 @@
         const files = Array.from(fileInput.files);
         let nameCounter = {};
 
-        // 1. 建立符合微軟官方標準的 Excel 2003 XML 活頁簿開頭與全域樣式結構
         let xmlWorkbookHeader = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>好好篩</Author></DocumentProperties><Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/><Borders/><Font ss:FontName="微軟正黑體" x:CharSet="136" x:Family="Swiss" ss:Size="11"/><Interior/><NumberFormat/><Protection/></Style><Style ss:ID="sDate"><NumberFormat ss:Format="Short Date"/></Style></Styles>`;
-        let xmlWorksheetsStream = ''; // 用於存放所有分頁的數據串流
+        let xmlWorksheetsStream = '';
 
-        // 2. 非同步迴圈讀取並轉譯每個檔案
         const parseFileToXmlSheetAsync = (file, index) => {
             return new Promise((resolve) => {
                 resultContainer.innerHTML = `⚙️ [模式 B] 正在無壓縮讀取並編譯分頁 (${index + 1} / ${files.length})：<br><b>${file.name}</b>`;
@@ -477,7 +474,6 @@
                         if (firstSheetName && wb.Sheets[firstSheetName]) {
                             const sheet = wb.Sheets[firstSheetName];
                             
-                            // 規範分頁名稱（不可重複且長度受限）
                             let baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[\\/?*\[\]]/g, "").substring(0, 26);
                             if (nameCounter[baseName] === undefined) {
                                 nameCounter[baseName] = 1;
@@ -486,10 +482,8 @@
                                 baseName = baseName.substring(0, 22) + "_" + nameCounter[baseName];
                             }
 
-                            // 開始為當前檔案建立獨立工作表節點
                             xmlWorksheetsStream += `<Worksheet ss:Name="${baseName}"><Table>`;
                             
-                            // 將工作表轉換為標準二維陣列
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                             
                             rows.forEach(row => {
@@ -504,13 +498,11 @@
                                     } else if (typeof cellVal === 'number') {
                                         xmlWorksheetsStream += `<Cell><Data ss:Type="Number">${cellVal}</Data></Cell>`;
                                     } else if (cellVal instanceof Date) {
-                                        // 完美保留日期格式
                                         let isoString = cellVal.toISOString();
                                         xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${isoString}</Data></Cell>`;
                                     } else if (typeof cellVal === 'boolean') {
-                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Boolean">${cellVal ? 1 : 0}</Data></Cell>`;
+                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Boolean">${cellVal ? 1 : 0}</Data></Cell>';
                                     } else {
-                                        // 處理字串中的特殊 XML 符號避免毀損
                                         let cleanStr = cellVal.toString()
                                             .replace(/&/g, '&amp;')
                                             .replace(/</g, '&lt;')
@@ -528,7 +520,7 @@
                         wb.Sheets = null; wb.SheetNames = null; wb = null; arrayBuffer = null;
                     } catch (err) { console.error(err); }
                     reader = null;
-                    setTimeout(resolve, 40); // 提供充足時間供記憶體回收，防止網頁卡死
+                    setTimeout(resolve, 40);
                 };
                 reader.readAsArrayBuffer(file);
             });
@@ -536,18 +528,14 @@
 
         for (let i = 0; i < files.length; i++) { await parseFileToXmlSheetAsync(files[i], i); }
 
-        // 3. 封裝輸出
         resultContainer.innerHTML = "⏳ 正在封裝多分頁活頁簿結構...";
         setTimeout(() => {
             try {
                 if (xmlWorksheetsStream.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：未讀取到有效資料。</div>`; return; }
 
                 let xmlWorkbookFooter = '</Workbook>';
-                
-                // 將文字流直接包裝成 Blob，不經任何壓縮，所以絕對不卡頓
                 const blob = new Blob([xmlWorkbookHeader + xmlWorksheetsStream + xmlWorkbookFooter], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-                
-                xmlWorksheetsStream = null; // 立即釋放記憶體
+                xmlWorksheetsStream = null;
 
                 const dlUrl = URL.createObjectURL(blob);
                 const outName = `帳務多檔合併_一檔案一分頁_${getSafeDateString()}.xls`;
