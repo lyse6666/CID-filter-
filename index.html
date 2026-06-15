@@ -198,6 +198,29 @@
             display: none;
         }
 
+        /* 模式選擇區域 */
+        .mode-container {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+        }
+        .mode-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            padding: 6px 0;
+            cursor: pointer;
+            color: #334155;
+        }
+        .mode-option input[type="radio"] {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+        }
+
         .btn { 
             width: 100%; 
             padding: 12px; 
@@ -306,7 +329,6 @@
 </div>
 
 <div class="main-content">
-    <!-- 左側欄：名單管理 -->
     <div class="column-left">
         <div class="card">
             <h3>📝 儲存 CID 名單</h3>
@@ -329,9 +351,7 @@
         </div>
     </div>
 
-    <!-- 右側欄：核心處理中心 -->
     <div class="column-right">
-        <!-- 功能一：單檔篩選 (已全面精簡化) -->
         <div class="card">
             <h3>🎯 選擇 CID 與單檔篩選</h3>
             <div class="form-group">
@@ -350,15 +370,28 @@
                 <div id="filterPreviewList" class="file-list-preview"></div>
             </div>
 
-            <!-- 按鈕組直接內建智慧判斷 -->
-            <div style="display: flex; gap: 10px; margin-top: 25px;">
-                <button class="btn btn-orange" style="flex: 1.3;" onclick="startFiltering('all_smart')">📄 依原檔案分頁篩選</button>
-                <button class="btn btn-green" style="flex: 0.7;" onclick="startFiltering('first')">🎯 僅篩選第一分頁</button>
+            <div class="form-group">
+                <label>篩選結果匯出分頁模式：</label>
+                <div class="mode-container">
+                    <label class="mode-option">
+                        <input type="radio" name="filterMode" value="mode1"> 模式 1：所有匹配資料合併在單一分頁
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="filterMode" value="mode2"> 模式 2：強制依帳號拆分獨立分頁
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="filterMode" value="mode3" checked> 模式 3：原汁原味模式（保留原分頁結構與順序）
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-green" style="flex: 1;" onclick="startFiltering('first')">📄 篩選第一分頁</button>
+                <button class="btn btn-orange" style="flex: 1;" onclick="startFiltering('all')">✨ 篩選全部分頁</button>
             </div>
             <div id="filterResultContainer" class="inline-result-container"></div>
         </div>
 
-        <!-- 功能二：多檔案合併 (XML 拼裝架構隔離，未受任何影響) -->
         <div class="card">
             <h3>📂 Excel 多檔案合併工具</h3>
             <div class="form-group">
@@ -387,7 +420,6 @@
     </div>
 </div>
 
-<!-- 彈出明細視窗 -->
 <div id="accountDetailModal" class="custom-modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -418,14 +450,12 @@
             preview.style.display = 'none';
             return;
         }
-        
         const count = input.files.length;
         if (count === 1) {
             notice.innerHTML = `🟢 已成功載入：<b>${input.files[0].name}</b>`;
         } else {
             notice.innerHTML = `🟢 已批次載入：<b>${count} 個 Excel 檔案</b>`;
         }
-        
         preview.innerHTML = "<b>已選取檔案清單：</b><ol style='margin:4px 0 0 0; padding-left:20px;'>";
         for (let i = 0; i < input.files.length; i++) {
             preview.innerHTML += `<li>${input.files[i].name} (${(input.files[i].size/1024).toFixed(1)} KB)</li>`;
@@ -460,8 +490,6 @@
                 localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
                 if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端同步成功"; }
                 updateCidDropdownAndList();
-            } else {
-                if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端目前無資料"; }
             }
         })
         .catch(err => {
@@ -473,27 +501,21 @@
         const select = document.getElementById('cidSelect');
         const listContainer = document.getElementById('cidListContainer');
         if (!select || !listContainer) return;
-
         select.innerHTML = ''; listContainer.innerHTML = '';
         const cids = Object.keys(cloudDatabase);
-
         if (cids.length === 0) {
             const opt = document.createElement('option'); opt.value = ""; opt.text = "-- 目前無有效 CID --";
             select.appendChild(opt); listContainer.innerText = "目前無已儲存的名單。"; return;
         }
-
         cids.forEach(cid => {
             const opt = document.createElement('option'); opt.value = cid; opt.text = cid;
             select.appendChild(opt);
-
             const wrapper = document.createElement('div'); wrapper.className = "cid-item-wrapper";
             const clickArea = document.createElement('div'); clickArea.className = "cid-click-area";
             clickArea.innerText = `• ${cid} (${cloudDatabase[cid].length || 0} 筆帳號) 🔍`;
             clickArea.onclick = function() { openAccountModal(cid); };
-
             const delBtn = document.createElement('span'); delBtn.className = "btn-inline-del"; delBtn.innerHTML = "❌";
             delBtn.onclick = function(e) { e.stopPropagation(); deleteEntireCid(cid); };
-
             wrapper.appendChild(clickArea); wrapper.appendChild(delBtn);
             listContainer.appendChild(wrapper);
         });
@@ -503,19 +525,15 @@
         const cidNameInput = document.getElementById('cidName');
         const accountListInput = document.getElementById('accountList');
         if (!cidNameInput || !accountListInput) return;
-
         const cidName = cidNameInput.value.trim();
         const accountListText = accountListInput.value.trim();
         if (!cidName || !accountListText) { alert("請輸入完整的 CID 名稱與帳號名單！"); return; }
-        
         const accounts = accountListText.split('\n').map(a => a.trim()).filter(a => a);
         if (!cloudDatabase[cidName]) cloudDatabase[cidName] = [];
         cloudDatabase[cidName] = Array.from(new Set([...cloudDatabase[cidName], ...accounts]));
         localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
-        
         updateCidDropdownAndList();
         cidNameInput.value = ''; accountListInput.value = '';
-
         document.getElementById('syncStatus').innerText = "⏳ 正在同步更新至雲端...";
         fetch(CLOUD_API_URL, {
             method: 'POST', mode: 'no-cors', body: JSON.stringify({ cid: cidName, accounts: accounts, action: "save" })
@@ -527,7 +545,6 @@
         const title = document.getElementById('modalTitle');
         const body = document.getElementById('modalBody');
         if(!modal || !title || !body) return;
-
         title.innerText = `【 ${cid} 】帳號明細`; body.innerHTML = '';
         (cloudDatabase[cid] || []).forEach(acc => {
             const row = document.createElement('div'); row.className = "modal-account-item";
@@ -568,17 +585,23 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 核心智慧處理邏輯（精簡版入口） =================
-    function startFiltering(btnActionType = 'all_smart') {
+    // ================= 核心三大模式篩選邏輯 (100% 完美回復修復) =================
+    function startFiltering(scope = 'all') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
+        const modeElements = document.getElementsByName('filterMode');
         
+        let selectedMode = 'mode3'; // 預設原汁原味
+        for (let i = 0; i < modeElements.length; i++) {
+            if (modeElements[i].checked) { selectedMode = modeElements[i].value; break; }
+        }
+
         if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在讀取並比對分頁結構...</div>`;
+        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在執行多模式精準比對與篩選...</div>`;
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -589,45 +612,128 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
-                // 決定要處理哪些分頁 (first 或是全部智慧處理)
-                let sheetsToProcess = (btnActionType === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
+                // 決定要處理的分頁範疇
+                let sheetsToProcess = (scope === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                sheetsToProcess.forEach(name => {
-                    const origSheet = workbook.Sheets[name];
-                    if (!origSheet || !origSheet['!ref']) return;
-                    const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
-                    if (rawRows.length === 0) return;
-                    const range = XLSX.utils.decode_range(origSheet['!ref']);
+                if (selectedMode === 'mode1') {
+                    // 【模式 1：所有匹配資料合併在單一分頁】
+                    let combinedSheet = {}; let nextRow = 1; let isHeaderCopied = false;
+                    let totalRange = { s: { c: 0, r: 0 }, e: { c: 0, r: 0 } };
 
-                    let foundAccountsInThisSheet = new Set();
-                    let rowMatchMap = []; 
+                    sheetsToProcess.forEach(name => {
+                        const origSheet = workbook.Sheets[name];
+                        if (!origSheet || !origSheet['!ref']) return;
+                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                        const range = XLSX.utils.decode_range(origSheet['!ref']);
+                        if (range.e.c > totalRange.e.c) totalRange.e.c = range.e.c;
 
-                    for (let i = 1; i < rawRows.length; i++) {
-                        if (!rawRows[i] || rawRows[i].length === 0) { rowMatchMap[i] = null; continue; }
-                        let currentMacc = null;
-                        rawRows[i].forEach(cellVal => {
-                            if (cellVal !== null && cellVal !== undefined) {
-                                const strVal = cellVal.toString().trim();
-                                if (targetAccounts.includes(strVal)) currentMacc = strVal;
+                        if (!isHeaderCopied && rawRows.length > 0) {
+                            for (let c = range.s.c; c <= range.e.c; c++) {
+                                const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
+                                if (origSheet[hRef]) combinedSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
+                            }
+                            isHeaderCopied = true;
+                        }
+
+                        for (let i = 1; i < rawRows.length; i++) {
+                            let isMatch = false;
+                            if (rawRows[i]) {
+                                rawRows[i].forEach(cellVal => {
+                                    if (cellVal !== null && cellVal !== undefined && targetAccounts.includes(cellVal.toString().trim())) {
+                                        isMatch = true;
+                                    }
+                                });
+                            }
+                            if (isMatch) {
+                                for (let c = range.s.c; c <= range.e.c; c++) {
+                                    const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
+                                    if (origSheet[oldRef]) {
+                                        const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
+                                        combinedSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
+                                    }
+                                }
+                                nextRow++;
                             }
                         });
-                        rowMatchMap[i] = currentMacc;
-                        if (currentMacc) foundAccountsInThisSheet.add(currentMacc);
-                    }
+                    });
+                    combinedSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: totalRange.e.c, r: nextRow - 1 } });
+                    XLSX.utils.book_append_sheet(newWorkbook, combinedSheet, "篩選合併結果");
 
-                    // 無符合資料則跳過
-                    if (foundAccountsInThisSheet.size === 0) return;
+                } else if (selectedMode === 'mode2') {
+                    // 【模式 2：強制依帳號拆分獨立分頁】
+                    let accountSheetsMap = {};
 
-                    // 智慧決策分流
-                    if (foundAccountsInThisSheet.size <= 1) {
-                        // 【情境一：原汁原味】單一分頁僅單一帳號，完美保留原有名稱與位置
+                    sheetsToProcess.forEach(name => {
+                        const origSheet = workbook.Sheets[name];
+                        if (!origSheet || !origSheet['!ref']) return;
+                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                        const range = XLSX.utils.decode_range(origSheet['!ref']);
+
+                        for (let i = 1; i < rawRows.length; i++) {
+                            let matchedAccount = null;
+                            if (rawRows[i]) {
+                                rawRows[i].forEach(cellVal => {
+                                    if (cellVal !== null && cellVal !== undefined) {
+                                        const sVal = cellVal.toString().trim();
+                                        if (targetAccounts.includes(sVal)) matchedAccount = sVal;
+                                    }
+                                });
+                            }
+
+                            if (matchedAccount) {
+                                if (!accountSheetsMap[matchedAccount]) {
+                                    accountSheetsMap[matchedAccount] = { sheet: {}, nextRow: 1, maxCol: range.e.c };
+                                    for (let c = range.s.c; c <= range.e.c; c++) {
+                                        const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
+                                        if (origSheet[hRef]) accountSheetsMap[matchedAccount].sheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
+                                    }
+                                }
+                                let targetObj = accountSheetsMap[matchedAccount];
+                                if (range.e.c > targetObj.maxCol) targetObj.maxCol = range.e.c;
+                                for (let c = range.s.c; c <= range.e.c; c++) {
+                                    const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
+                                    if (origSheet[oldRef]) {
+                                        const newRef = XLSX.utils.encode_cell({ r: targetObj.nextRow, c: c });
+                                        targetObj.sheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
+                                    }
+                                }
+                                targetObj.nextRow++;
+                            }
+                        }
+                    });
+
+                    Object.keys(accountSheetsMap).forEach(accName => {
+                        let obj = accountSheetsMap[accName];
+                        obj.sheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: obj.maxCol, r: obj.nextRow - 1 } });
+                        XLSX.utils.book_append_sheet(newWorkbook, obj.sheet, accName.substring(0, 30));
+                    });
+
+                } else {
+                    // 【模式 3：原汁原味模式（100% 遵循原檔案分頁名稱與位置）】
+                    sheetsToProcess.forEach(name => {
+                        const origSheet = workbook.Sheets[name];
+                        if (!origSheet || !origSheet['!ref']) return;
+                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                        const range = XLSX.utils.decode_range(origSheet['!ref']);
+
                         let newSheet = {}; let nextRow = 1;
+                        // 複製原本該分頁的標題列
                         for (let c = range.s.c; c <= range.e.c; c++) {
                             const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
                             if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
                         }
+
+                        // 比對並保留符合條件的行，完全待在原本對應的分頁裡
                         for (let i = 1; i < rawRows.length; i++) {
-                            if (rowMatchMap[i]) {
+                            let isMatch = false;
+                            if (rawRows[i]) {
+                                rawRows[i].forEach(cellVal => {
+                                    if (cellVal !== null && cellVal !== undefined && targetAccounts.includes(cellVal.toString().trim())) {
+                                        isMatch = true;
+                                    }
+                                });
+                            }
+                            if (isMatch) {
                                 for (let c = range.s.c; c <= range.e.c; c++) {
                                     const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
                                     if (origSheet[oldRef]) {
@@ -638,34 +744,14 @@
                                 nextRow++;
                             }
                         }
-                        newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
-                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
-                    } else {
-                        // 【情境二：混雜分流】單一分頁包含複數帳號，自動啟動按帳號拆分獨立新分頁
-                        foundAccountsInThisSheet.forEach(accName => {
-                            let newSheet = {}; let nextRow = 1;
-                            for (let c = range.s.c; c <= range.e.c; c++) {
-                                const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
-                                if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
-                            }
-                            for (let i = 1; i < rawRows.length; i++) {
-                                if (rowMatchMap[i] === accName) {
-                                    for (let c = range.s.c; c <= range.e.c; c++) {
-                                        const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
-                                        if (origSheet[oldRef]) {
-                                            const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
-                                            newSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
-                                        }
-                                    }
-                                    nextRow++;
-                                }
-                            }
+
+                        // 只有當這個分頁有撈到匹配資料時，才把它原封不動依原本名稱與位置塞回新活頁簿
+                        if (nextRow > 1) {
                             newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
-                            let combinedSheetName = `${name}_${accName}`.replace(/[\\/?*\[\]]/g, "").substring(0, 30);
-                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, combinedSheetName);
-                        });
-                    }
-                });
+                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                        }
+                    });
+                }
 
                 if (newWorkbook.SheetNames.length === 0) {
                     resultContainer.innerHTML = `<div class="status-text status-error">❌ 找不到任何匹配的 Account 資料！</div>`; return;
@@ -689,24 +775,18 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 (100% 保留) =================
+    // ================= 功能二：多檔案合併核心控制中心 (100% 完全保留) =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
-        if (isSingleMode) {
-            startMergeToSingleCSV(); 
-        } else {
-            startMergeToSingleMultiSheetExcelWorkbook();
-        }
+        if (isSingleMode) { startMergeToSingleCSV(); } else { startMergeToSingleMultiSheetExcelWorkbook(); }
     }
 
     async function startMergeToSingleCSV() {
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('mergeResultContainer');
         if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
-
         const files = Array.from(fileInput.files);
-        let csvChunksArray = []; 
-        let hasHeaderLoaded = false; 
+        let csvChunksArray = []; let hasHeaderLoaded = false; 
 
         const parseFileAsync = (file, index) => {
             return new Promise((resolve) => {
@@ -716,17 +796,14 @@
                     try {
                         let arrayBuffer = new Uint8Array(e.target.result);
                         let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, raw: true });
-
                         wb.SheetNames.forEach(sheetName => {
                             const sheet = wb.Sheets[sheetName];
                             if (!sheet || !sheet['!ref']) return; 
                             let csvChunk = XLSX.utils.sheet_to_csv(sheet, { FS: ",", RS: "\n" });
-                            
                             if (csvChunk && csvChunk.trim().length > 0) {
                                 if (!hasHeaderLoaded) {
                                     if (!csvChunk.endsWith("\n")) csvChunk += "\n";
-                                    csvChunksArray.push(csvChunk);
-                                    hasHeaderLoaded = true;
+                                    csvChunksArray.push(csvChunk); hasHeaderLoaded = true;
                                 } else {
                                     const firstLineBreak = csvChunk.indexOf("\n");
                                     if (firstLineBreak !== -1) {
@@ -743,9 +820,7 @@
                 reader.readAsArrayBuffer(file);
             });
         };
-
         for (let i = 0; i < files.length; i++) { await parseFileAsync(files[i], i); }
-
         resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝 CSV...</div>";
         setTimeout(() => {
             if (csvChunksArray.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 無有效資料。</div>`; return; }
@@ -763,10 +838,7 @@
         const fileInput = document.getElementById('mergeFiles');
         const resultContainer = document.getElementById('mergeResultContainer');
         if (!fileInput.files || fileInput.files.length === 0) { alert('請選擇至少一個 Excel 檔案！'); return; }
-
-        const files = Array.from(fileInput.files);
-        let nameCounter = {};
-
+        const files = Array.from(fileInput.files); let nameCounter = {};
         let xmlWorkbookHeader = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>好好篩</Author></DocumentProperties><Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/><Borders/><Font ss:FontName="微軟正黑體" x:CharSet="136" x:Family="Swiss" ss:Size="11"/><Interior/><NumberFormat/><Protection/></Style><Style ss:ID="sDate"><NumberFormat ss:Format="Short Date"/></Style></Styles>`;
         let xmlWorksheetsStream = '';
 
@@ -779,34 +851,20 @@
                         let arrayBuffer = new Uint8Array(e.target.result);
                         let wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
                         const firstSheetName = wb.SheetNames[0];
-
                         if (firstSheetName && wb.Sheets[firstSheetName]) {
                             const sheet = wb.Sheets[firstSheetName];
                             let baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[\\/?*\[\]]/g, "").substring(0, 26);
-                            if (nameCounter[baseName] === undefined) {
-                                nameCounter[baseName] = 1;
-                            } else {
-                                nameCounter[baseName]++;
-                                baseName = baseName.substring(0, 22) + "_" + nameCounter[baseName];
-                            }
-
+                            if (nameCounter[baseName] === undefined) { nameCounter[baseName] = 1; } else { nameCounter[baseName]++; baseName = baseName.substring(0, 22) + "_" + nameCounter[baseName]; }
                             xmlWorksheetsStream += `<Worksheet ss:Name="${baseName}"><Table>`;
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-                            
                             rows.forEach(row => {
                                 if (!row || row.length === 0) { xmlWorksheetsStream += '<Row></Row>'; return; }
                                 xmlWorksheetsStream += '<Row>';
                                 row.forEach(cellVal => {
-                                    if (cellVal === null || cellVal === undefined || cellVal === "") {
-                                        xmlWorksheetsStream += '<Cell><Data ss:Type="String"></Data></Cell>';
-                                    } else if (typeof cellVal === 'number') {
-                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Number">${cellVal}</Data></Cell>`;
-                                    } else if (cellVal instanceof Date) {
-                                        xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${cellVal.toISOString()}</Data></Cell>`;
-                                    } else {
-                                        let cleanStr = cellVal.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                        xmlWorksheetsStream += `<Cell><Data ss:Type="String">${cleanStr}</Data></Cell>`;
-                                    }
+                                    if (cellVal === null || cellVal === undefined || cellVal === "") { xmlWorksheetsStream += '<Cell><Data ss:Type="String"></Data></Cell>'; }
+                                    else if (typeof cellVal === 'number') { xmlWorksheetsStream += `<Cell><Data ss:Type="Number">${cellVal}</Data></Cell>`; }
+                                    else if (cellVal instanceof Date) { xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${cellVal.toISOString()}</Data></Cell>`; }
+                                    else { let cleanStr = cellVal.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); xmlWorksheetsStream += `<Cell><Data ss:Type="String">${cleanStr}</Data></Cell>`; }
                                 });
                                 xmlWorksheetsStream += '</Row>';
                             });
@@ -818,9 +876,7 @@
                 reader.readAsArrayBuffer(file);
             });
         };
-
         for (let i = 0; i < files.length; i++) { await parseFileToXmlSheetAsync(files[i], i); }
-
         resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝檔案...</div>";
         setTimeout(() => {
             if (xmlWorksheetsStream.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 無有效資料。</div>`; return; }
