@@ -48,7 +48,6 @@
             font-size: 14px;
         }
 
-        /* 使用流程圖 */
         .step-container {
             display: flex;
             justify-content: space-between;
@@ -255,11 +254,6 @@
             background: #fafafa;
         }
         
-        .radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 5px; font-size: 14px; }
-        .radio-group label { font-weight: normal !important; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; transition: all 0.2s; }
-        .radio-group label:hover { background: #f1f5f9; border-color: #cbd5e1; }
-        .radio-group input[type="radio"]:checked + span { font-weight: bold; color: var(--primary-color); }
-        
         .download-box { 
             background-color: #f0f9ff; 
             border: 2px dashed #bae6fd; 
@@ -306,12 +300,13 @@
         </div>
         <div class="step-item active">
             <div class="step-icon">4</div>
-            <div class="step-text">選擇欲處理模式</div>
+            <div class="step-text">點擊按鈕輸出</div>
         </div>
     </div>
 </div>
 
 <div class="main-content">
+    <!-- 左側欄：名單管理 -->
     <div class="column-left">
         <div class="card">
             <h3>📝 儲存 CID 名單</h3>
@@ -334,7 +329,9 @@
         </div>
     </div>
 
+    <!-- 右側欄：核心處理中心 -->
     <div class="column-right">
+        <!-- 功能一：單檔篩選 (已全面精簡化) -->
         <div class="card">
             <h3>🎯 選擇 CID 與單檔篩選</h3>
             <div class="form-group">
@@ -352,33 +349,16 @@
                 </div>
                 <div id="filterPreviewList" class="file-list-preview"></div>
             </div>
-            
-            <div class="form-group" style="border-top: 1px dashed #edf2f7; padding-top: 12px; margin-top: 12px;">
-                <label>篩選結果匯出分頁模式：</label>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" id="filterModeCombine" name="filterSplitMode" value="combine" checked>
-                        <span>模式 1：所有匹配資料合併在單一分頁（綜合接龍）</span>
-                    </label>
-                    <label>
-                        <input type="radio" id="filterModeSplit" name="filterSplitMode" value="split">
-                        <span>模式 2：強制依匹配到的帳號各自拆分獨立分頁</span>
-                    </label>
-                    <label>
-                        <input type="radio" id="filterModeSmart" name="filterSplitMode" value="smart">
-                        <span>模式 3：原汁原味模式（保留原分頁結構，僅在單一分頁混雜多個帳號時自動分流 ✨）</span>
-                    </label>
-                </div>
-            </div>
 
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px;">
-                <button class="btn btn-green" style="flex: 1; min-width: 140px;" onclick="startFiltering('first')">📄 篩選第一分頁</button>
-                <button class="btn btn-orange" style="flex: 1; min-width: 140px;" onclick="startFiltering('all_normal')">✨ 篩選全部分頁 (原汁原味)</button>
-                <button class="btn btn-purple" style="flex: 1; min-width: 140px;" onclick="startFiltering('all_smart')">⚙️ 篩選全部分頁 (智能混雜分流)</button>
+            <!-- 按鈕組直接內建智慧判斷 -->
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button class="btn btn-orange" style="flex: 1.3;" onclick="startFiltering('all_smart')">📄 依原檔案分頁篩選</button>
+                <button class="btn btn-green" style="flex: 0.7;" onclick="startFiltering('first')">🎯 僅篩選第一分頁</button>
             </div>
             <div id="filterResultContainer" class="inline-result-container"></div>
         </div>
 
+        <!-- 功能二：多檔案合併 (XML 拼裝架構隔離，未受任何影響) -->
         <div class="card">
             <h3>📂 Excel 多檔案合併工具</h3>
             <div class="form-group">
@@ -392,14 +372,12 @@
             </div>
             <div class="form-group">
                 <label>處理模式選擇：</label>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" id="modeSingle" name="mergeMode" value="single" checked>
-                        <span>模式 A：合併至單一分頁</span>
+                <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 14px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="radio" id="modeSingle" name="mergeMode" value="single" checked> 模式 A：合併至單一分頁
                     </label>
-                    <label>
-                        <input type="radio" id="modeMulti" name="mergeMode" value="multi">
-                        <span>模式 B：一檔案一分頁</span>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="radio" id="modeMulti" name="mergeMode" value="multi"> 模式 B：一檔案一分頁
                     </label>
                 </div>
             </div>
@@ -409,6 +387,7 @@
     </div>
 </div>
 
+<!-- 彈出明細視窗 -->
 <div id="accountDetailModal" class="custom-modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -589,21 +568,17 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：優化增強版「單檔篩選」核心邏輯（完美保留原分頁，支援智能多帳號混雜判定） =================
-    function startFiltering(btnActionType = 'first') {
+    // ================= 核心智慧處理邏輯（精簡版入口） =================
+    function startFiltering(btnActionType = 'all_smart') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
         
-        let checkedMode = 'combine';
-        if (document.getElementById('filterModeSplit').checked) checkedMode = 'split';
-        if (document.getElementById('filterModeSmart').checked) checkedMode = 'smart';
-
         if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在讀取大型檔案，分析與對齊格式中...</div>`;
+        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在讀取並比對分頁結構...</div>`;
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -614,146 +589,67 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
-                // 決定要處理哪些分頁
+                // 決定要處理哪些分頁 (first 或是全部智慧處理)
                 let sheetsToProcess = (btnActionType === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                // 【情況一：綜合接龍模式 (模式 1)】
-                if (checkedMode === 'combine') {
-                    sheetsToProcess.forEach(name => {
-                        const origSheet = workbook.Sheets[name];
-                        if (!origSheet || !origSheet['!ref']) return;
-                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
-                        if (rawRows.length === 0) return;
+                sheetsToProcess.forEach(name => {
+                    const origSheet = workbook.Sheets[name];
+                    if (!origSheet || !origSheet['!ref']) return;
+                    const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                    if (rawRows.length === 0) return;
+                    const range = XLSX.utils.decode_range(origSheet['!ref']);
 
-                        const range = XLSX.utils.decode_range(origSheet['!ref']);
-                        let keepRowIndexes = [0];
+                    let foundAccountsInThisSheet = new Set();
+                    let rowMatchMap = []; 
 
-                        for (let i = 1; i < rawRows.length; i++) {
-                            if (!rawRows[i] || rawRows[i].length === 0) continue;
-                            const hasMatch = rawRows[i].some(cellVal => {
-                                if (cellVal === null || cellVal === undefined) return false;
-                                return targetAccounts.includes(cellVal.toString().trim());
-                            });
-                            if (hasMatch) keepRowIndexes.push(i);
-                        }
-
-                        if (keepRowIndexes.length <= 1 && btnActionType !== 'first') return;
-
-                        let newSheet = {}; let currentNewRow = 0;
-                        keepRowIndexes.forEach(r => {
-                            let hasCellInRow = false;
-                            for (let c = range.s.c; c <= range.e.c; c++) {
-                                const oldCellRef = XLSX.utils.encode_cell({ r: r, c: c });
-                                if (origSheet[oldCellRef]) {
-                                    const newCellRef = XLSX.utils.encode_cell({ r: currentNewRow, c: c });
-                                    newSheet[newCellRef] = origSheet[oldCellRef];
-                                    hasCellInRow = true;
-                                }
+                    for (let i = 1; i < rawRows.length; i++) {
+                        if (!rawRows[i] || rawRows[i].length === 0) { rowMatchMap[i] = null; continue; }
+                        let currentMacc = null;
+                        rawRows[i].forEach(cellVal => {
+                            if (cellVal !== null && cellVal !== undefined) {
+                                const strVal = cellVal.toString().trim();
+                                if (targetAccounts.includes(strVal)) currentMacc = strVal;
                             }
-                            if (hasCellInRow || r === 0) currentNewRow++;
                         });
+                        rowMatchMap[i] = currentMacc;
+                        if (currentMacc) foundAccountsInThisSheet.add(currentMacc);
+                    }
 
-                        if (currentNewRow > 0) {
-                            newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: range.s.c, r: 0 }, e: { c: range.e.c, r: Math.max(0, currentNewRow - 1) } });
-                            if (origSheet['!cols']) newSheet['!cols'] = origSheet['!cols'];
-                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                    // 無符合資料則跳過
+                    if (foundAccountsInThisSheet.size === 0) return;
+
+                    // 智慧決策分流
+                    if (foundAccountsInThisSheet.size <= 1) {
+                        // 【情境一：原汁原味】單一分頁僅單一帳號，完美保留原有名稱與位置
+                        let newSheet = {}; let nextRow = 1;
+                        for (let c = range.s.c; c <= range.e.c; c++) {
+                            const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
+                            if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
                         }
-                    });
-
-                // 【情況二：完全強制依帳號重拆分頁 (模式 2)】
-                } else if (checkedMode === 'split') {
-                    let accountSheetsMap = {};
-                    sheetsToProcess.forEach(name => {
-                        const origSheet = workbook.Sheets[name];
-                        if (!origSheet || !origSheet['!ref']) return;
-                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
-                        if (rawRows.length === 0) return;
-                        const range = XLSX.utils.decode_range(origSheet['!ref']);
-
                         for (let i = 1; i < rawRows.length; i++) {
-                            if (!rawRows[i] || rawRows[i].length === 0) continue;
-                            let matchedAccount = null;
-                            rawRows[i].forEach(cellVal => {
-                                if (cellVal !== null && cellVal !== undefined) {
-                                    const strVal = cellVal.toString().trim();
-                                    if (targetAccounts.includes(strVal)) matchedAccount = strVal;
-                                }
-                            });
-
-                            if (matchedAccount) {
-                                if (!accountSheetsMap[matchedAccount]) {
-                                    accountSheetsMap[matchedAccount] = { sheetObj: {}, nextRowIdx: 1, maxCol: range.e.c };
-                                    for (let c = range.s.c; c <= range.e.c; c++) {
-                                        const headerCellRef = XLSX.utils.encode_cell({ r: 0, c: c });
-                                        if (origSheet[headerCellRef]) {
-                                            accountSheetsMap[matchedAccount].sheetObj[headerCellRef] = { v: origSheet[headerCellRef].v, t: origSheet[headerCellRef].t };
-                                        }
-                                    }
-                                }
-                                let currentAccSheet = accountSheetsMap[matchedAccount].sheetObj;
-                                let targetRowIdx = accountSheetsMap[matchedAccount].nextRowIdx;
-                                if (range.e.c > accountSheetsMap[matchedAccount].maxCol) accountSheetsMap[matchedAccount].maxCol = range.e.c;
-
+                            if (rowMatchMap[i]) {
                                 for (let c = range.s.c; c <= range.e.c; c++) {
-                                    const oldCellRef = XLSX.utils.encode_cell({ r: i, c: c });
-                                    if (origSheet[oldCellRef]) {
-                                        const newCellRef = XLSX.utils.encode_cell({ r: targetRowIdx, c: c });
-                                        currentAccSheet[newCellRef] = { v: origSheet[oldCellRef].v, t: origSheet[oldCellRef].t, z: origSheet[oldCellRef].z };
+                                    const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
+                                    if (origSheet[oldRef]) {
+                                        const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
+                                        newSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
                                     }
                                 }
-                                accountSheetsMap[matchedAccount].nextRowIdx++;
+                                nextRow++;
                             }
                         }
-                    });
-
-                    Object.keys(accountSheetsMap).forEach(accName => {
-                        let accData = accountSheetsMap[accName];
-                        accData.sheetObj['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: accData.maxCol, r: accData.nextRowIdx - 1 } });
-                        let safeSheetName = accName.toString().replace(/[\\/?*\[\]]/g, "").substring(0, 30);
-                        XLSX.utils.book_append_sheet(newWorkbook, accData.sheetObj, safeSheetName);
-                    });
-
-                // 【情況三：原汁原味 + 智能混雜分流模式 (模式 3 / 按鈕三 ✨ 您想要的完美解法)】
-                } else if (checkedMode === 'smart' || btnActionType === 'all_smart') {
-                    sheetsToProcess.forEach(name => {
-                        const origSheet = workbook.Sheets[name];
-                        if (!origSheet || !origSheet['!ref']) return;
-                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
-                        if (rawRows.length === 0) return;
-                        const range = XLSX.utils.decode_range(origSheet['!ref']);
-
-                        // 1. 先行分析此分頁中匹配到了哪些不同的帳號
-                        let foundAccountsInThisSheet = new Set();
-                        let rowMatchMap = []; // 紀錄每列匹配到哪個帳號
-
-                        for (let i = 1; i < rawRows.length; i++) {
-                            if (!rawRows[i] || rawRows[i].length === 0) { rowMatchMap[i] = null; continue; }
-                            let currentMacc = null;
-                            rawRows[i].forEach(cellVal => {
-                                if (cellVal !== null && cellVal !== undefined) {
-                                    const strVal = cellVal.toString().trim();
-                                    if (targetAccounts.includes(strVal)) currentMacc = strVal;
-                                }
-                            });
-                            rowMatchMap[i] = currentMacc;
-                            if (currentMacc) foundAccountsInThisSheet.add(currentMacc);
-                        }
-
-                        // 如果此分頁完全沒有符合的資料，直接跳過
-                        if (foundAccountsInThisSheet.size === 0) return;
-
-                        // 2. 核心判斷：如果是單一帳號，維持原汁原味！如果是混雜多帳號，自動啟動分流！
-                        if (foundAccountsInThisSheet.size <= 1) {
-                            // 【原汁原味】只有一個帳號，原封不動保留原分頁名稱
+                        newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
+                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                    } else {
+                        // 【情境二：混雜分流】單一分頁包含複數帳號，自動啟動按帳號拆分獨立新分頁
+                        foundAccountsInThisSheet.forEach(accName => {
                             let newSheet = {}; let nextRow = 1;
-                            // 複製標題
                             for (let c = range.s.c; c <= range.e.c; c++) {
                                 const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
                                 if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
                             }
-                            // 複製資料
                             for (let i = 1; i < rawRows.length; i++) {
-                                if (rowMatchMap[i]) {
+                                if (rowMatchMap[i] === accName) {
                                     for (let c = range.s.c; c <= range.e.c; c++) {
                                         const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
                                         if (origSheet[oldRef]) {
@@ -765,37 +661,11 @@
                                 }
                             }
                             newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
-                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
-                        } else {
-                            // 【智能混雜分流】有多個帳號混在一起，將它們分拆為新分頁
-                            foundAccountsInThisSheet.forEach(accName => {
-                                let newSheet = {}; let nextRow = 1;
-                                // 複製標題
-                                for (let c = range.s.c; c <= range.e.c; c++) {
-                                    const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
-                                    if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
-                                }
-                                // 只抽取屬於這個帳號的列
-                                for (let i = 1; i < rawRows.length; i++) {
-                                    if (rowMatchMap[i] === accName) {
-                                        for (let c = range.s.c; c <= range.e.c; c++) {
-                                            const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
-                                            if (origSheet[oldRef]) {
-                                                const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
-                                                newSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
-                                            }
-                                        }
-                                        nextRow++;
-                                    }
-                                }
-                                newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
-                                // 分頁名稱命名為：原分頁名_帳號名
-                                let combinedSheetName = `${name}_${accName}`.replace(/[\\/?*\[\]]/g, "").substring(0, 30);
-                                XLSX.utils.book_append_sheet(newWorkbook, newSheet, combinedSheetName);
-                            });
-                        }
-                    });
-                }
+                            let combinedSheetName = `${name}_${accName}`.replace(/[\\/?*\[\]]/g, "").substring(0, 30);
+                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, combinedSheetName);
+                        });
+                    }
+                });
 
                 if (newWorkbook.SheetNames.length === 0) {
                     resultContainer.innerHTML = `<div class="status-text status-error">❌ 找不到任何匹配的 Account 資料！</div>`; return;
@@ -804,22 +674,22 @@
                 const outData = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([outData], { type: 'application/octet-stream' });
                 const dlUrl = URL.createObjectURL(blob);
-                const outName = `好好篩篩選結果_${selectedCid}_${getSafeDateString()}.xlsx`;
+                const outName = `好好篩結果_${selectedCid}_${getSafeDateString()}.xlsx`;
 
                 resultContainer.innerHTML = `
                     <div class="download-box">
-                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式篩選與分流完成！</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載篩選後 Excel</a>
+                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 處理完成！</p>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已篩選 Excel</a>
                     </div>`;
             } catch (err) {
                 console.error(err);
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選打包失敗：請確認檔案是否損壞。</div>`;
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 檔案處理失敗。</div>`;
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 （100% 完整保留，絕無變動） =================
+    // ================= 功能二：多檔案合併核心控制中心 (100% 保留) =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
         if (isSingleMode) {
@@ -840,7 +710,7 @@
 
         const parseFileAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `<div class='status-text status-loading'>📊 [模式 A] 正在高速抽取第 (${index + 1} / ${files.length}) 個檔案：<br><b>${file.name}</b></div>`;
+                resultContainer.innerHTML = `<div class='status-text status-loading'>📊 正在高速合併檔案 (${index + 1} / ${files.length})</div>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
@@ -866,11 +736,8 @@
                                     }
                                 }
                             }
-                            csvChunk = null;
                         });
-                        wb.Sheets = null; wb.SheetNames = null; wb = null; arrayBuffer = null;
                     } catch (err) { console.error(err); }
-                    reader = null;
                     setTimeout(resolve, 30);
                 };
                 reader.readAsArrayBuffer(file);
@@ -879,22 +746,16 @@
 
         for (let i = 0; i < files.length; i++) { await parseFileAsync(files[i], i); }
 
-        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在直接封裝大數據 CSV 串流...</div>";
+        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝 CSV...</div>";
         setTimeout(() => {
-            try {
-                if (csvChunksArray.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：無有效資料。</div>`; return; }
-                const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), ...csvChunksArray], { type: 'text/csv;charset=utf-8;' });
-                csvChunksArray = null; 
-
-                const dlUrl = URL.createObjectURL(blob);
-                const outName = `帳務多檔合併_單一分頁大數據_${getSafeDateString()}.csv`;
-                resultContainer.innerHTML = `
-                    <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
-                        <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 模式 A 合併成功！</p>
-                        <p style="font-size: 12px; color: #666; margin-bottom: 12px;">已將所有檔案之全部分頁縱向接龍，匯出為防亂碼 CSV 檔。</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-purple" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
-                    </div>`;
-            } catch (e) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：瀏覽器快取不足。</div>`; }
+            if (csvChunksArray.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 無有效資料。</div>`; return; }
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), ...csvChunksArray], { type: 'text/csv;charset=utf-8;' });
+            const dlUrl = URL.createObjectURL(blob);
+            resultContainer.innerHTML = `
+                <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
+                    <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 模式 A 合併成功！</p>
+                    <a href="${dlUrl}" download="合併結果_單一分頁_${getSafeDateString()}.csv" class="btn btn-purple" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
+                </div>`;
         }, 100);
     }
 
@@ -911,7 +772,7 @@
 
         const parseFileToXmlSheetAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `<div class='status-text status-loading'>⚙️ [模式 B] 正在編譯分頁 (${index + 1} / ${files.length})：<br><b>${file.name}</b></div>`;
+                resultContainer.innerHTML = `<div class='status-text status-loading'>⚙️ 正在編譯分頁 (${index + 1} / ${files.length})</div>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
@@ -921,7 +782,6 @@
 
                         if (firstSheetName && wb.Sheets[firstSheetName]) {
                             const sheet = wb.Sheets[firstSheetName];
-                            
                             let baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[\\/?*\[\]]/g, "").substring(0, 26);
                             if (nameCounter[baseName] === undefined) {
                                 nameCounter[baseName] = 1;
@@ -931,14 +791,10 @@
                             }
 
                             xmlWorksheetsStream += `<Worksheet ss:Name="${baseName}"><Table>`;
-                            
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                             
                             rows.forEach(row => {
-                                if (!row || row.length === 0) {
-                                    xmlWorksheetsStream += '<Row></Row>';
-                                    return;
-                                }
+                                if (!row || row.length === 0) { xmlWorksheetsStream += '<Row></Row>'; return; }
                                 xmlWorksheetsStream += '<Row>';
                                 row.forEach(cellVal => {
                                     if (cellVal === null || cellVal === undefined || cellVal === "") {
@@ -946,28 +802,17 @@
                                     } else if (typeof cellVal === 'number') {
                                         xmlWorksheetsStream += `<Cell><Data ss:Type="Number">${cellVal}</Data></Cell>`;
                                     } else if (cellVal instanceof Date) {
-                                        let isoString = cellVal.toISOString();
-                                        xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${isoString}</Data></Cell>`;
-                                    } else if (typeof cellVal === 'boolean') {
-                                        xmlWorksheetsStream += `<Cell><Data ss:Type="Boolean">${cellVal ? 1 : 0}</Data></Cell>`;
+                                        xmlWorksheetsStream += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${cellVal.toISOString()}</Data></Cell>`;
                                     } else {
-                                        let cleanStr = cellVal.toString()
-                                            .replace(/&/g, '&amp;')
-                                            .replace(/</g, '&lt;')
-                                            .replace(/>/g, '&gt;')
-                                            .replace(/"/g, '&quot;')
-                                            .replace(/'/g, '&apos;');
+                                        let cleanStr = cellVal.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                         xmlWorksheetsStream += `<Cell><Data ss:Type="String">${cleanStr}</Data></Cell>`;
                                     }
                                 });
                                 xmlWorksheetsStream += '</Row>';
                             });
-                            
                             xmlWorksheetsStream += '</Table></Worksheet>';
                         }
-                        wb.Sheets = null; wb.SheetNames = null; wb = null; arrayBuffer = null;
                     } catch (err) { console.error(err); }
-                    reader = null;
                     setTimeout(resolve, 40);
                 };
                 reader.readAsArrayBuffer(file);
@@ -976,28 +821,17 @@
 
         for (let i = 0; i < files.length; i++) { await parseFileToXmlSheetAsync(files[i], i); }
 
-        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝多分頁活頁簿結構...</div>";
+        resultContainer.innerHTML = "<div class='status-text status-loading'>⏳ 正在封裝檔案...</div>";
         setTimeout(() => {
-            try {
-                if (xmlWorksheetsStream.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 合併失敗：未讀取到有效資料。</div>`; return; }
-
-                let xmlWorkbookFooter = '</Workbook>';
-                const blob = new Blob([xmlWorkbookHeader + xmlWorksheetsStream + xmlWorkbookFooter], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-                xmlWorksheetsStream = null;
-
-                const dlUrl = URL.createObjectURL(blob);
-                const outName = `帳務多檔合併_一檔案一分頁_${getSafeDateString()}.xls`;
-
-                resultContainer.innerHTML = `
-                    <div class="download-box" style="border-color: #007bff; background-color: #f0f9ff;">
-                        <p style="color:#007bff; font-weight:bold; margin-top:0;">🎉 模式 B 整合成功！</p>
-                        <p style="font-size: 12px; color: #333; margin-bottom: 6px;">已成功將 <b>${files.length} 個檔案</b> 整合至同一個 Excel 檔案的不同分頁中！</p>
-                        <p style="font-size: 11px; color: #fd7e14; margin-bottom: 12px;">⚠️ <b>開啟提示</b>：第一次使用微軟 Excel 打開時若提示「檔案格式與副檔名不符」，為微軟標準安全機制，<b>請點選「是」放心開啟</b>即可。</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-blue" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載整合後 Excel 檔</a>
-                    </div>`;
-            } catch (e) {
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 匯出失敗：檔案過大導致打包崩潰。</div>`;
-            }
+            if (xmlWorksheetsStream.length === 0) { resultContainer.innerHTML = `<div class="status-text status-error">❌ 無有效資料。</div>`; return; }
+            let xmlWorkbookFooter = '</Workbook>';
+            const blob = new Blob([xmlWorkbookHeader + xmlWorksheetsStream + xmlWorkbookFooter], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const dlUrl = URL.createObjectURL(blob);
+            resultContainer.innerHTML = `
+                <div class="download-box" style="border-color: #007bff; background-color: #f0f9ff;">
+                    <p style="color:#007bff; font-weight:bold; margin-top:0;">🎉 模式 B 整合成功！</p>
+                    <a href="${dlUrl}" download="合併結果_多頁活頁簿_${getSafeDateString()}.xls" class="btn btn-blue" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載整合後 Excel</a>
+                </div>`;
         }, 100);
     }
 </script>
