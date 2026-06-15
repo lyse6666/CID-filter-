@@ -373,13 +373,13 @@
                 <label>篩選結果匯出分頁模式：</label>
                 <div class="mode-container">
                     <label class="mode-option">
-                        <input type="radio" name="filterMode" value="mode1"> 模式 1：所有匹配資料合併在單一分頁
+                        <input type="radio" name="filterMode" value="mode1" checked> 模式 1：所有匹配資料合併在單一分頁
                     </label>
                     <label class="mode-option">
                         <input type="radio" name="filterMode" value="mode2"> 模式 2：強制依帳號拆分獨立分頁
                     </label>
                     <label class="mode-option">
-                        <input type="radio" name="filterMode" value="mode3" checked> 模式 3：原汁原味模式（保留原分頁結構與順序）
+                        <input type="radio" name="filterMode" value="mode3"> 模式 3：原汁原味模式（保留原分頁結構與順序）
                     </label>
                 </div>
             </div>
@@ -589,14 +589,14 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 終極強化：加入「分頁名稱重複安全防護」的篩選核心 =================
+    // ================= 深度瘦身優化版篩選核心 =================
     function startFiltering(scope = 'all') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
         const modeElements = document.getElementsByName('filterMode');
         
-        let selectedMode = 'mode3'; 
+        let selectedMode = 'mode1'; 
         for (let i = 0; i < modeElements.length; i++) {
             if (modeElements[i].checked) { selectedMode = modeElements[i].value; break; }
         }
@@ -605,7 +605,7 @@
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim().toLowerCase());
-        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在執行高速大檔案解析與精準比對中...</div>`;
+        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在執行深度瘦身解析與篩選中...</div>`;
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -616,10 +616,9 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true, dense: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
-                // 用來追蹤與防止分頁名稱重複的計數器
                 let usedSheetNames = {};
                 function getUniqueSheetName(baseName) {
-                    let name = baseName.toString().trim().substring(0, 31); // Excel 分頁限制最大長度為 31 字元
+                    let name = baseName.toString().trim().substring(0, 31);
                     if (!name) name = "Sheet";
                     if (!usedSheetNames[name]) {
                         usedSheetNames[name] = 1;
@@ -636,7 +635,7 @@
                 
                 let sheetsToProcess = (scope === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                // 【模式 1：全部合併在單一分頁】
+                // 【模式 1：全部合併在單一分頁 + 深度瘦身】
                 if (selectedMode === 'mode1') {
                     let totalRows = [];
                     sheetsToProcess.forEach(name => {
@@ -652,6 +651,10 @@
                         for (let i = 1; i < rows.length; i++) {
                             const row = rows[i];
                             if (!row || row.length === 0) continue;
+                            // 檢查整列是否全空
+                            let isAllBlank = row.every(c => c === null || c === undefined || c.toString().trim() === "");
+                            if (isAllBlank) continue;
+
                             let isMatch = row.some(cell => cell !== null && cell !== undefined && targetAccounts.includes(cell.toString().trim().toLowerCase()));
                             if (isMatch) totalRows.push(row);
                         }
@@ -659,6 +662,8 @@
                     
                     if (totalRows.length > 1) {
                         const newSheet = XLSX.utils.aoa_to_sheet(totalRows);
+                        // 👈 強制逼 SheetJS 重新根據實際行數計算邊界，剔除原大檔案的幾十萬行殘留外殼
+                        newSheet['!ref'] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:totalRows[0].length-1, r:totalRows.length-1}});
                         XLSX.utils.book_append_sheet(newWorkbook, newSheet, "篩選合併結果");
                     }
 
@@ -677,6 +682,8 @@
                         for (let i = 1; i < rows.length; i++) {
                             const row = rows[i];
                             if (!row || row.length === 0) continue;
+                            let isAllBlank = row.every(c => c === null || c === undefined || c.toString().trim() === "");
+                            if (isAllBlank) continue;
                             
                             let matchedAccount = null;
                             for (let j = 0; j < row.length; j++) {
@@ -705,7 +712,7 @@
                         XLSX.utils.book_append_sheet(newWorkbook, newSheet, finalName);
                     });
 
-                // 【模式 3：原汁原味模式（完美保留原分頁結構與名稱，並加上重複命名防護）】
+                // 【模式 3：原汁原味模式 + 深度瘦身】
                 } else {
                     sheetsToProcess.forEach(name => {
                         const origSheet = workbook.Sheets[name];
@@ -718,13 +725,17 @@
                         for (let i = 1; i < rows.length; i++) {
                             const row = rows[i];
                             if (!row || row.length === 0) continue;
+                            let isAllBlank = row.every(c => c === null || c === undefined || c.toString().trim() === "");
+                            if (isAllBlank) continue;
+
                             let isMatch = row.some(cell => cell !== null && cell !== undefined && targetAccounts.includes(cell.toString().trim().toLowerCase()));
                             if (isMatch) filteredRows.push(row);
                         }
 
                         if (filteredRows.length > 1) {
                             const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
-                            const finalName = getUniqueSheetName(name); // 👈 這裡調用防重複命名函式，徹底解決崩潰問題！
+                            newSheet['!ref'] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:filteredRows[0].length-1, r:filteredRows.length-1}});
+                            const finalName = getUniqueSheetName(name); 
                             XLSX.utils.book_append_sheet(newWorkbook, newSheet, finalName);
                         }
                     });
@@ -741,7 +752,7 @@
 
                 resultContainer.innerHTML = `
                     <div class="download-box">
-                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 大檔案篩選完成！</p>
+                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 檔案瘦身篩選完成！</p>
                         <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已篩選 Excel</a>
                     </div>`;
             } catch (err) {
@@ -752,7 +763,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 =================
+    // ================= 功能二：多檔案合併核心 =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
         if (isSingleMode) { startMergeToSingleCSV(); } else { startMergeToSingleMultiSheetExcelWorkbook(); }
