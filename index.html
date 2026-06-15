@@ -198,7 +198,6 @@
             display: none;
         }
 
-        /* 模式選擇區域 */
         .mode-container {
             background-color: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -490,10 +489,15 @@
                 localStorage.setItem('backup_cloud_db', JSON.stringify(cloudDatabase));
                 if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端同步成功"; }
                 updateCidDropdownAndList();
+            } else {
+                if (statusDiv) { statusDiv.className = "status-text status-success"; statusDiv.innerText = "🟢 雲端目前無資料"; }
+                updateCidDropdownAndList();
             }
         })
         .catch(err => {
+            console.error(err);
             if (statusDiv) { statusDiv.className = "status-text status-error"; statusDiv.innerText = "❌ 網路異常，目前使用離線備份模式"; }
+            updateCidDropdownAndList();
         });
     }
 
@@ -567,6 +571,7 @@
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
+    // 完全刪除 CID 群組
     function deleteEntireCid(cid) {
         if (!confirm(`確定完全刪除【${cid}】群組？`)) return;
         delete cloudDatabase[cid];
@@ -585,14 +590,14 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 核心三大模式篩選邏輯 (100% 完美回復修復) =================
+    // ================= 核心三大模式篩選邏輯 =================
     function startFiltering(scope = 'all') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
         const modeElements = document.getElementsByName('filterMode');
         
-        let selectedMode = 'mode3'; // 預設原汁原味
+        let selectedMode = 'mode3'; 
         for (let i = 0; i < modeElements.length; i++) {
             if (modeElements[i].checked) { selectedMode = modeElements[i].value; break; }
         }
@@ -612,7 +617,6 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
-                // 決定要處理的分頁範疇
                 let sheetsToProcess = (scope === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
                 if (selectedMode === 'mode1') {
@@ -654,7 +658,7 @@
                                 }
                                 nextRow++;
                             }
-                        });
+                        }
                     });
                     combinedSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: totalRange.e.c, r: nextRow - 1 } });
                     XLSX.utils.book_append_sheet(newWorkbook, combinedSheet, "篩選合併結果");
@@ -717,13 +721,11 @@
                         const range = XLSX.utils.decode_range(origSheet['!ref']);
 
                         let newSheet = {}; let nextRow = 1;
-                        // 複製原本該分頁的標題列
                         for (let c = range.s.c; c <= range.e.c; c++) {
                             const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
                             if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
                         }
 
-                        // 比對並保留符合條件的行，完全待在原本對應的分頁裡
                         for (let i = 1; i < rawRows.length; i++) {
                             let isMatch = false;
                             if (rawRows[i]) {
@@ -745,7 +747,6 @@
                             }
                         }
 
-                        // 只有當這個分頁有撈到匹配資料時，才把它原封不動依原本名稱與位置塞回新活頁簿
                         if (nextRow > 1) {
                             newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
                             XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
@@ -775,7 +776,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 (100% 完全保留) =================
+    // ================= 功能二：多檔案合併核心控制中心 =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
         if (isSingleMode) { startMergeToSingleCSV(); } else { startMergeToSingleMultiSheetExcelWorkbook(); }
