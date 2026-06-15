@@ -48,7 +48,7 @@
             font-size: 14px;
         }
 
-        /* 蝦皮風格使用流程圖 */
+        /* 使用流程圖 */
         .step-container {
             display: flex;
             justify-content: space-between;
@@ -358,18 +358,23 @@
                 <div class="radio-group">
                     <label>
                         <input type="radio" id="filterModeCombine" name="filterSplitMode" value="combine" checked>
-                        <span>模式 1：所有匹配資料合併在單一分頁（原始功能）</span>
+                        <span>模式 1：所有匹配資料合併在單一分頁（綜合接龍）</span>
                     </label>
                     <label>
                         <input type="radio" id="filterModeSplit" name="filterSplitMode" value="split">
-                        <span>模式 2：依匹配到的帳號自動拆分獨立分頁（新功能 ✨）</span>
+                        <span>模式 2：強制依匹配到的帳號各自拆分獨立分頁</span>
+                    </label>
+                    <label>
+                        <input type="radio" id="filterModeSmart" name="filterSplitMode" value="smart">
+                        <span>模式 3：原汁原味模式（保留原分頁結構，僅在單一分頁混雜多個帳號時自動分流 ✨）</span>
                     </label>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; margin-top: 15px;">
-                <button class="btn btn-green" style="flex: 1;" onclick="startFiltering(false)">📄 篩選第一分頁</button>
-                <button class="btn btn-orange" style="flex: 1;" onclick="startFiltering(true)">✨ 篩選全部分頁</button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px;">
+                <button class="btn btn-green" style="flex: 1; min-width: 140px;" onclick="startFiltering('first')">📄 篩選第一分頁</button>
+                <button class="btn btn-orange" style="flex: 1; min-width: 140px;" onclick="startFiltering('all_normal')">✨ 篩選全部分頁 (原汁原味)</button>
+                <button class="btn btn-purple" style="flex: 1; min-width: 140px;" onclick="startFiltering('all_smart')">⚙️ 篩選全部分頁 (智能混雜分流)</button>
             </div>
             <div id="filterResultContainer" class="inline-result-container"></div>
         </div>
@@ -584,21 +589,21 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：優化與修正版「單檔篩選」核心邏輯（解決名單卡死、防崩潰、精準跨分頁提取） =================
-    function startFiltering(processAllSheets = false) {
+    // ================= 功能一：優化增強版「單檔篩選」核心邏輯（完美保留原分頁，支援智能多帳號混雜判定） =================
+    function startFiltering(btnActionType = 'first') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
         
-        // 安全修復：使用最具兼容性的原生選取寫法，避免 DOM 未完全就緒時卡死
-        const filterModeSplitEl = document.getElementById('filterModeSplit');
-        const isSplitMode = filterModeSplitEl ? filterModeSplitEl.checked : false;
+        let checkedMode = 'combine';
+        if (document.getElementById('filterModeSplit').checked) checkedMode = 'split';
+        if (document.getElementById('filterModeSmart').checked) checkedMode = 'smart';
 
         if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim());
-        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在讀取大型檔案並以${isSplitMode ? '「獨立帳號分頁」' : '「原格式接龍」'}分析中...</div>`;
+        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在讀取大型檔案，分析與對齊格式中...</div>`;
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -606,22 +611,22 @@
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                // 唯讀與核心最優化加載，避免大檔案讓網頁記憶體爆開
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const newWorkbook = XLSX.utils.book_new();
-                let sheetsToProcess = processAllSheets ? workbook.SheetNames : [workbook.SheetNames[0]];
+                
+                // 決定要處理哪些分頁
+                let sheetsToProcess = (btnActionType === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                if (!isSplitMode) {
-                    // 【模式 1：原始功能 - 所有匹配資料合併在單一分頁】
+                // 【情況一：綜合接龍模式 (模式 1)】
+                if (checkedMode === 'combine') {
                     sheetsToProcess.forEach(name => {
                         const origSheet = workbook.Sheets[name];
                         if (!origSheet || !origSheet['!ref']) return;
-
                         const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
                         if (rawRows.length === 0) return;
 
                         const range = XLSX.utils.decode_range(origSheet['!ref']);
-                        let keepRowIndexes = [0]; // 預設保留首行標題
+                        let keepRowIndexes = [0];
 
                         for (let i = 1; i < rawRows.length; i++) {
                             if (!rawRows[i] || rawRows[i].length === 0) continue;
@@ -632,11 +637,9 @@
                             if (hasMatch) keepRowIndexes.push(i);
                         }
 
-                        if (keepRowIndexes.length <= 1 && processAllSheets) return;
+                        if (keepRowIndexes.length <= 1 && btnActionType !== 'first') return;
 
-                        let newSheet = {};
-                        let currentNewRow = 0;
-
+                        let newSheet = {}; let currentNewRow = 0;
                         keepRowIndexes.forEach(r => {
                             let hasCellInRow = false;
                             for (let c = range.s.c; c <= range.e.c; c++) {
@@ -651,60 +654,46 @@
                         });
 
                         if (currentNewRow > 0) {
-                            const newRange = { s: { c: range.s.c, r: 0 }, e: { c: range.e.c, r: Math.max(0, currentNewRow - 1) } };
-                            newSheet['!ref'] = XLSX.utils.encode_range(newRange);
+                            newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: range.s.c, r: 0 }, e: { c: range.e.c, r: Math.max(0, currentNewRow - 1) } });
                             if (origSheet['!cols']) newSheet['!cols'] = origSheet['!cols'];
                             XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
                         }
                     });
-                } else {
-                    // 【模式 2：全新優化 - 依匹配帳號拆分獨立分頁】（解決多檔案雜亂混在同分頁問題）
-                    let accountSheetsMap = {}; 
 
+                // 【情況二：完全強制依帳號重拆分頁 (模式 2)】
+                } else if (checkedMode === 'split') {
+                    let accountSheetsMap = {};
                     sheetsToProcess.forEach(name => {
                         const origSheet = workbook.Sheets[name];
                         if (!origSheet || !origSheet['!ref']) return;
-
                         const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
                         if (rawRows.length === 0) return;
-
                         const range = XLSX.utils.decode_range(origSheet['!ref']);
 
                         for (let i = 1; i < rawRows.length; i++) {
                             if (!rawRows[i] || rawRows[i].length === 0) continue;
-                            
                             let matchedAccount = null;
-                            // 掃描這行看是哪一個符合名單的帳號
                             rawRows[i].forEach(cellVal => {
                                 if (cellVal !== null && cellVal !== undefined) {
                                     const strVal = cellVal.toString().trim();
-                                    if (targetAccounts.includes(strVal)) {
-                                        matchedAccount = strVal;
-                                    }
+                                    if (targetAccounts.includes(strVal)) matchedAccount = strVal;
                                 }
                             });
 
                             if (matchedAccount) {
-                                // 第一次建立該帳號的分頁時，立刻複製當前原分頁的「首行標題列」
                                 if (!accountSheetsMap[matchedAccount]) {
                                     accountSheetsMap[matchedAccount] = { sheetObj: {}, nextRowIdx: 1, maxCol: range.e.c };
-                                    
                                     for (let c = range.s.c; c <= range.e.c; c++) {
                                         const headerCellRef = XLSX.utils.encode_cell({ r: 0, c: c });
                                         if (origSheet[headerCellRef]) {
-                                            // 輕量化複製，只複製值，防止大型樣式擠爆記憶體
                                             accountSheetsMap[matchedAccount].sheetObj[headerCellRef] = { v: origSheet[headerCellRef].v, t: origSheet[headerCellRef].t };
                                         }
                                     }
                                 }
-
                                 let currentAccSheet = accountSheetsMap[matchedAccount].sheetObj;
                                 let targetRowIdx = accountSheetsMap[matchedAccount].nextRowIdx;
-                                if (range.e.c > accountSheetsMap[matchedAccount].maxCol) {
-                                    accountSheetsMap[matchedAccount].maxCol = range.e.c;
-                                }
+                                if (range.e.c > accountSheetsMap[matchedAccount].maxCol) accountSheetsMap[matchedAccount].maxCol = range.e.c;
 
-                                // 複製這行資料的內容
                                 for (let c = range.s.c; c <= range.e.c; c++) {
                                     const oldCellRef = XLSX.utils.encode_cell({ r: i, c: c });
                                     if (origSheet[oldCellRef]) {
@@ -717,15 +706,94 @@
                         }
                     });
 
-                    // 封裝與綁定範圍
                     Object.keys(accountSheetsMap).forEach(accName => {
                         let accData = accountSheetsMap[accName];
-                        const finalMaxRow = accData.nextRowIdx - 1;
-                        const newRange = { s: { c: 0, r: 0 }, e: { c: accData.maxCol, r: finalMaxRow } };
-                        accData.sheetObj['!ref'] = XLSX.utils.encode_range(newRange);
-                        
+                        accData.sheetObj['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: accData.maxCol, r: accData.nextRowIdx - 1 } });
                         let safeSheetName = accName.toString().replace(/[\\/?*\[\]]/g, "").substring(0, 30);
                         XLSX.utils.book_append_sheet(newWorkbook, accData.sheetObj, safeSheetName);
+                    });
+
+                // 【情況三：原汁原味 + 智能混雜分流模式 (模式 3 / 按鈕三 ✨ 您想要的完美解法)】
+                } else if (checkedMode === 'smart' || btnActionType === 'all_smart') {
+                    sheetsToProcess.forEach(name => {
+                        const origSheet = workbook.Sheets[name];
+                        if (!origSheet || !origSheet['!ref']) return;
+                        const rawRows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
+                        if (rawRows.length === 0) return;
+                        const range = XLSX.utils.decode_range(origSheet['!ref']);
+
+                        // 1. 先行分析此分頁中匹配到了哪些不同的帳號
+                        let foundAccountsInThisSheet = new Set();
+                        let rowMatchMap = []; // 紀錄每列匹配到哪個帳號
+
+                        for (let i = 1; i < rawRows.length; i++) {
+                            if (!rawRows[i] || rawRows[i].length === 0) { rowMatchMap[i] = null; continue; }
+                            let currentMacc = null;
+                            rawRows[i].forEach(cellVal => {
+                                if (cellVal !== null && cellVal !== undefined) {
+                                    const strVal = cellVal.toString().trim();
+                                    if (targetAccounts.includes(strVal)) currentMacc = strVal;
+                                }
+                            });
+                            rowMatchMap[i] = currentMacc;
+                            if (currentMacc) foundAccountsInThisSheet.add(currentMacc);
+                        }
+
+                        // 如果此分頁完全沒有符合的資料，直接跳過
+                        if (foundAccountsInThisSheet.size === 0) return;
+
+                        // 2. 核心判斷：如果是單一帳號，維持原汁原味！如果是混雜多帳號，自動啟動分流！
+                        if (foundAccountsInThisSheet.size <= 1) {
+                            // 【原汁原味】只有一個帳號，原封不動保留原分頁名稱
+                            let newSheet = {}; let nextRow = 1;
+                            // 複製標題
+                            for (let c = range.s.c; c <= range.e.c; c++) {
+                                const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
+                                if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
+                            }
+                            // 複製資料
+                            for (let i = 1; i < rawRows.length; i++) {
+                                if (rowMatchMap[i]) {
+                                    for (let c = range.s.c; c <= range.e.c; c++) {
+                                        const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
+                                        if (origSheet[oldRef]) {
+                                            const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
+                                            newSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
+                                        }
+                                    }
+                                    nextRow++;
+                                }
+                            }
+                            newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
+                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                        } else {
+                            // 【智能混雜分流】有多個帳號混在一起，將它們分拆為新分頁
+                            foundAccountsInThisSheet.forEach(accName => {
+                                let newSheet = {}; let nextRow = 1;
+                                // 複製標題
+                                for (let c = range.s.c; c <= range.e.c; c++) {
+                                    const hRef = XLSX.utils.encode_cell({ r: 0, c: c });
+                                    if (origSheet[hRef]) newSheet[hRef] = { v: origSheet[hRef].v, t: origSheet[hRef].t };
+                                }
+                                // 只抽取屬於這個帳號的列
+                                for (let i = 1; i < rawRows.length; i++) {
+                                    if (rowMatchMap[i] === accName) {
+                                        for (let c = range.s.c; c <= range.e.c; c++) {
+                                            const oldRef = XLSX.utils.encode_cell({ r: i, c: c });
+                                            if (origSheet[oldRef]) {
+                                                const newRef = XLSX.utils.encode_cell({ r: nextRow, c: c });
+                                                newSheet[newRef] = { v: origSheet[oldRef].v, t: origSheet[oldRef].t, z: origSheet[oldRef].z };
+                                            }
+                                        }
+                                        nextRow++;
+                                    }
+                                }
+                                newSheet['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: range.e.c, r: nextRow - 1 } });
+                                // 分頁名稱命名為：原分頁名_帳號名
+                                let combinedSheetName = `${name}_${accName}`.replace(/[\\/?*\[\]]/g, "").substring(0, 30);
+                                XLSX.utils.book_append_sheet(newWorkbook, newSheet, combinedSheetName);
+                            });
+                        }
                     });
                 }
 
@@ -736,23 +804,22 @@
                 const outData = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([outData], { type: 'application/octet-stream' });
                 const dlUrl = URL.createObjectURL(blob);
-                const outName = `好好篩_${selectedCid}_${isSplitMode ? '帳號獨立分頁' : '原格式接龍'}_${getSafeDateString()}.xlsx`;
+                const outName = `好好篩篩選結果_${selectedCid}_${getSafeDateString()}.xlsx`;
 
                 resultContainer.innerHTML = `
                     <div class="download-box">
-                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式篩選成功！</p>
-                        <p style="font-size: 12px; color: #555; margin-bottom: 10px;">處理完畢。模式：<b>${isSplitMode ? '跨分頁雜亂資料自動分流 ➜ 依帳號獨立分頁（保留首行標題）' : '綜合接龍'}</b></p>
+                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 格式篩選與分流完成！</p>
                         <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載篩選後 Excel</a>
                     </div>`;
             } catch (err) {
                 console.error(err);
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選打包失敗：因原始檔案過大或欄位複雜，超出了瀏覽器快取上限。</div>`;
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 篩選打包失敗：請確認檔案是否損壞。</div>`;
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 （100% 沿用您原本最穩定的舊邏輯，絕對沒有更動任何一個字） =================
+    // ================= 功能二：多檔案合併核心控制中心 （100% 完整保留，絕無變動） =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
         if (isSingleMode) {
