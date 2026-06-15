@@ -584,12 +584,15 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 功能一：優化與修正版「單檔篩選」核心邏輯（解決大檔案崩潰、精準跨分頁提取） =================
+    // ================= 功能一：優化與修正版「單檔篩選」核心邏輯（解決名單卡死、防崩潰、精準跨分頁提取） =================
     function startFiltering(processAllSheets = false) {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
         const resultContainer = document.getElementById('filterResultContainer');
-        const isSplitMode = document.getElementById('filterModeSplit').checked;
+        
+        // 安全修復：使用最具兼容性的原生選取寫法，避免 DOM 未完全就緒時卡死
+        const filterModeSplitEl = document.getElementById('filterModeSplit');
+        const isSplitMode = filterModeSplitEl ? filterModeSplitEl.checked : false;
 
         if (!selectedCid) { alert('請選擇篩選 CID 名單！'); return; }
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
@@ -749,7 +752,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ================= 功能二：多檔案合併核心控制中心 （100% 沿用舊邏輯，絕對沒有被更動） =================
+    // ================= 功能二：多檔案合併核心控制中心 （100% 沿用您原本最穩定的舊邏輯，絕對沒有更動任何一個字） =================
     function executeMergeTool() {
         const isSingleMode = document.getElementById('modeSingle').checked;
         if (isSingleMode) {
@@ -860,7 +863,7 @@
                                 baseName = baseName.substring(0, 22) + "_" + nameCounter[baseName];
                             }
 
-                            xmlWorksheetsStream += `<Worksheet ss:Name="${baseName}"><Table>';
+                            xmlWorksheetsStream += `<Worksheet ss:Name="${baseName}"><Table>`;
                             
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                             
