@@ -581,7 +581,6 @@
         }).then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // 清除所有紀錄
     function clearAllRecords() {
         if (!confirm("確定要完全清除所有紀錄？")) return;
         cloudDatabase = {}; localStorage.setItem('backup_cloud_db', "{}");
@@ -590,7 +589,7 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 終極強化：超耐操防崩潰篩選核心邏輯 =================
+    // ================= 終極強化：加入「分頁名稱重複安全防護」的篩選核心 =================
     function startFiltering(scope = 'all') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -617,9 +616,27 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true, dense: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
+                // 用來追蹤與防止分頁名稱重複的計數器
+                let usedSheetNames = {};
+                function getUniqueSheetName(baseName) {
+                    let name = baseName.toString().trim().substring(0, 31); // Excel 分頁限制最大長度為 31 字元
+                    if (!name) name = "Sheet";
+                    if (!usedSheetNames[name]) {
+                        usedSheetNames[name] = 1;
+                        return name;
+                    } else {
+                        let counter = usedSheetNames[name];
+                        let suffix = `_${counter}`;
+                        let availableLength = 31 - suffix.length;
+                        let newName = name.substring(0, availableLength) + suffix;
+                        usedSheetNames[name]++;
+                        return newName;
+                    }
+                }
+                
                 let sheetsToProcess = (scope === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                // 【耐操版模式 1：全部合併在單一分頁】
+                // 【模式 1：全部合併在單一分頁】
                 if (selectedMode === 'mode1') {
                     let totalRows = [];
                     sheetsToProcess.forEach(name => {
@@ -629,7 +646,7 @@
                         if (rows.length === 0) return;
                         
                         if (totalRows.length === 0) {
-                            totalRows.push(rows[0]); // 保留第一分頁的標頭
+                            totalRows.push(rows[0]); 
                         }
                         
                         for (let i = 1; i < rows.length; i++) {
@@ -645,7 +662,7 @@
                         XLSX.utils.book_append_sheet(newWorkbook, newSheet, "篩選合併結果");
                     }
 
-                // 【耐操版模式 2：依帳號拆分獨立分頁】
+                // 【模式 2：依帳號拆分獨立分頁】
                 } else if (selectedMode === 'mode2') {
                     let accountSheetsMap = {};
                     let globalHeader = null;
@@ -684,10 +701,11 @@
 
                     Object.keys(accountSheetsMap).forEach(accName => {
                         const newSheet = XLSX.utils.aoa_to_sheet(accountSheetsMap[accName]);
-                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, accName.toString().substring(0, 30));
+                        const finalName = getUniqueSheetName(accName);
+                        XLSX.utils.book_append_sheet(newWorkbook, newSheet, finalName);
                     });
 
-                // 【耐操版模式 3：原汁原味模式（完美保留原分頁結構與名稱）】
+                // 【模式 3：原汁原味模式（完美保留原分頁結構與名稱，並加上重複命名防護）】
                 } else {
                     sheetsToProcess.forEach(name => {
                         const origSheet = workbook.Sheets[name];
@@ -695,7 +713,7 @@
                         const rows = XLSX.utils.sheet_to_json(origSheet, { header: 1, defval: "" });
                         if (rows.length === 0) return;
 
-                        let filteredRows = [rows[0]]; // 第一列必定是標頭
+                        let filteredRows = [rows[0]]; 
 
                         for (let i = 1; i < rows.length; i++) {
                             const row = rows[i];
@@ -706,7 +724,8 @@
 
                         if (filteredRows.length > 1) {
                             const newSheet = XLSX.utils.aoa_to_sheet(filteredRows);
-                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, name);
+                            const finalName = getUniqueSheetName(name); // 👈 這裡調用防重複命名函式，徹底解決崩潰問題！
+                            XLSX.utils.book_append_sheet(newWorkbook, newSheet, finalName);
                         }
                     });
                 }
@@ -748,7 +767,7 @@
 
         const parseFileAsync = (file, index) => {
             return new Promise((resolve) => {
-                resultContainer.innerHTML = `<div class='status-text status-loading'>📊 正在高速合併檔案 (${index + 1} / ${files.length})</div>`;
+                resultContainer.innerHTML = `<div class='status-text status-loading'>📊 正在合併檔案 (${index + 1} / ${files.length})</div>`;
                 let reader = new FileReader();
                 reader.onload = function(e) {
                     try {
