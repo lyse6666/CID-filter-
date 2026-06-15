@@ -260,7 +260,7 @@
 
         .status-text { font-size: 13px; font-weight: 600; margin-top: 12px; padding: 8px 12px; border-radius: 6px; display: inline-block; }
         .status-success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
-        .status-error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .status-error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 12px; line-height: 1.4; word-break: break-all; }
         .status-loading { color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; }
         
         .inline-result-container { margin-top: 15px; }
@@ -305,7 +305,7 @@
 
 <div class="header">
     <h1>好好篩</h1>
-    <p>智慧型 Excel 帳務名單篩選與跨檔案高速合併核心系統</p>
+    <p>高效能 Excel 帳務名單篩選與跨檔案高速合併核心系統</p>
     
     <div class="step-container">
         <div class="step-item active">
@@ -589,7 +589,7 @@
         .then(() => { setTimeout(loadFromCloud, 1200); });
     }
 
-    // ================= 深度瘦身優化版篩選核心 =================
+    // ================= 深度優化版篩選核心 =================
     function startFiltering(scope = 'all') {
         const selectedCid = document.getElementById('cidSelect').value;
         const fileInput = document.getElementById('excelFile');
@@ -605,7 +605,7 @@
         if (!fileInput.files || fileInput.files.length === 0) { alert('請上傳 Excel 檔案！'); return; }
 
         const targetAccounts = (cloudDatabase[selectedCid] || []).map(a => a.toString().trim().toLowerCase());
-        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在執行深度瘦身解析與篩選中...</div>`;
+        resultContainer.innerHTML = `<div class='status-text status-loading'>⏳ 正在解析與執行篩選中...</div>`;
 
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -616,26 +616,31 @@
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true, dense: true });
                 const newWorkbook = XLSX.utils.book_new();
                 
-                let usedSheetNames = {};
+                // 🛠️ 強化版去重防錯物件：使用不分大小寫的 Key 來阻擋重複
+                let usedNamesLower = {};
                 function getUniqueSheetName(baseName) {
-                    let name = baseName.toString().trim().substring(0, 31);
-                    if (!name) name = "Sheet";
-                    if (!usedSheetNames[name]) {
-                        usedSheetNames[name] = 1;
-                        return name;
+                    // 清理 Excel 分頁名稱不允許的特殊字元 \ / ? * : [ ]
+                    let cleanName = baseName.toString().replace(/[\\/?*:\[\]]/g, "").trim().substring(0, 31);
+                    if (!cleanName) cleanName = "Sheet";
+                    
+                    let checkKey = cleanName.toLowerCase();
+                    if (!usedNamesLower[checkKey]) {
+                        usedNamesLower[checkKey] = 1;
+                        return cleanName;
                     } else {
-                        let counter = usedSheetNames[name];
+                        let counter = usedNamesLower[checkKey];
                         let suffix = `_${counter}`;
                         let availableLength = 31 - suffix.length;
-                        let newName = name.substring(0, availableLength) + suffix;
-                        usedSheetNames[name]++;
-                        return newName;
+                        let finalName = cleanName.substring(0, availableLength) + suffix;
+                        usedNamesLower[finalName.toLowerCase()] = 1;
+                        usedNamesLower[checkKey]++;
+                        return finalName;
                     }
                 }
                 
                 let sheetsToProcess = (scope === 'first') ? [workbook.SheetNames[0]] : workbook.SheetNames;
 
-                // 【模式 1：全部合併在單一分頁 + 深度瘦身】
+                // 【模式 1：全部合併在單一分頁】
                 if (selectedMode === 'mode1') {
                     let totalRows = [];
                     sheetsToProcess.forEach(name => {
@@ -651,7 +656,6 @@
                         for (let i = 1; i < rows.length; i++) {
                             const row = rows[i];
                             if (!row || row.length === 0) continue;
-                            // 檢查整列是否全空
                             let isAllBlank = row.every(c => c === null || c === undefined || c.toString().trim() === "");
                             if (isAllBlank) continue;
 
@@ -662,7 +666,6 @@
                     
                     if (totalRows.length > 1) {
                         const newSheet = XLSX.utils.aoa_to_sheet(totalRows);
-                        // 👈 強制逼 SheetJS 重新根據實際行數計算邊界，剔除原大檔案的幾十萬行殘留外殼
                         newSheet['!ref'] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:totalRows[0].length-1, r:totalRows.length-1}});
                         XLSX.utils.book_append_sheet(newWorkbook, newSheet, "篩選合併結果");
                     }
@@ -708,11 +711,12 @@
 
                     Object.keys(accountSheetsMap).forEach(accName => {
                         const newSheet = XLSX.utils.aoa_to_sheet(accountSheetsMap[accName]);
+                        newSheet['!ref'] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:accountSheetsMap[accName][0].length-1, r:accountSheetsMap[accName].length-1}});
                         const finalName = getUniqueSheetName(accName);
                         XLSX.utils.book_append_sheet(newWorkbook, newSheet, finalName);
                     });
 
-                // 【模式 3：原汁原味模式 + 深度瘦身】
+                // 【模式 3：原汁原味模式】
                 } else {
                     sheetsToProcess.forEach(name => {
                         const origSheet = workbook.Sheets[name];
@@ -750,14 +754,14 @@
                 const dlUrl = URL.createObjectURL(blob);
                 const outName = `好好篩結果_${selectedCid}_${getSafeDateString()}.xlsx`;
 
+                // 🌟 精簡優化後的載入區塊（移除瘦身字眼）
                 resultContainer.innerHTML = `
                     <div class="download-box">
-                        <p style="color:#28a745; font-weight:bold; margin-top:0;">🎉 檔案瘦身篩選完成！</p>
-                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已篩選 Excel</a>
+                        <a href="${dlUrl}" download="${outName}" class="btn btn-green" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none; margin: 5px 0;">📥 下載已篩選 Excel</a>
                     </div>`;
             } catch (err) {
                 console.error("篩選錯誤核心紀錄：", err);
-                resultContainer.innerHTML = `<div class="status-text status-error">❌ 檔案結構相衝突，解析失敗。原因：${err.message}</div>`;
+                resultContainer.innerHTML = `<div class="status-text status-error">❌ 檔案結構相衝突，解析失敗。<br>原因：${err.message}</div>`;
             }
         };
         reader.readAsArrayBuffer(file);
@@ -816,7 +820,6 @@
             const dlUrl = URL.createObjectURL(blob);
             resultContainer.innerHTML = `
                 <div class="download-box" style="border-color: #6f42c1; background-color: #f7f4fc;">
-                    <p style="color:#6f42c1; font-weight:bold; margin-top:0;">🎉 模式 A 合併成功！</p>
                     <a href="${dlUrl}" download="合併結果_單一分頁_${getSafeDateString()}.csv" class="btn btn-purple" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載已合併 CSV</a>
                 </div>`;
         }, 100);
@@ -873,7 +876,6 @@
             const dlUrl = URL.createObjectURL(blob);
             resultContainer.innerHTML = `
                 <div class="download-box" style="border-color: #007bff; background-color: #f0f9ff;">
-                    <p style="color:#007bff; font-weight:bold; margin-top:0;">🎉 模式 B 整合成功！</p>
                     <a href="${dlUrl}" download="合併結果_多頁活頁簿_${getSafeDateString()}.xls" class="btn btn-blue" style="display:inline-flex; width:auto; padding:10px 25px; text-decoration:none;">📥 下載整合後 Excel</a>
                 </div>`;
         }, 100);
