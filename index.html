@@ -310,22 +310,42 @@
         }
         .lookup-result-box {
             margin-top: 10px;
-            max-height: 200px;
+            max-height: 240px;
             overflow-y: auto;
             background: #fff;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 10px;
+            padding: 0;
             font-size: 13px;
         }
-        .lookup-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
+        .lookup-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .lookup-table thead th {
+            position: sticky;
+            top: 0;
+            background: #fbe4d5;
+            color: #333;
+            text-align: left;
+            font-weight: 700;
+            padding: 8px 12px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        .lookup-table thead th:first-child {
+            border-right: 1px solid #e8c9b8;
+        }
+        .lookup-table td {
+            padding: 7px 12px;
             border-bottom: 1px solid #f1f5f9;
         }
-        .lookup-item:last-child {
+        .lookup-table tr:last-child td {
             border-bottom: none;
+        }
+        .lookup-table td:first-child {
+            border-right: 1px solid #e2e8f0;
+            white-space: nowrap;
         }
         .lookup-found { color: var(--success-color); font-weight: bold; }
         .lookup-notfound { color: var(--danger-color); font-weight: 500; }
@@ -659,7 +679,6 @@ account_xyz_02" style="height: 100px;"></textarea>
             return;
         }
 
-        resultsContainer.innerHTML = '';
         resultWrapper.style.display = 'block';
 
         // 建立不分大小寫的反查索引地圖： { "lowercase_account": "Original_CID" }
@@ -673,20 +692,31 @@ account_xyz_02" style="height: 100px;"></textarea>
             });
         });
 
+        // 建立表格結構（左欄 CID / 右欄 Account）
+        resultsContainer.innerHTML = `
+            <table class="lookup-table">
+                <thead>
+                    <tr><th>CID</th><th>Account</th></tr>
+                </thead>
+                <tbody id="lookupTableBody"></tbody>
+            </table>
+        `;
+        const tbody = document.getElementById('lookupTableBody');
+
         // 開始反查並渲染結果
         queryAccounts.forEach(queryAcc => {
             const key = queryAcc.toLowerCase();
             const matchedCid = reverseMap[key];
             
-            const row = document.createElement('div');
+            const row = document.createElement('tr');
             row.className = 'lookup-item';
             
             if (matchedCid) {
-                row.innerHTML = `<span>${queryAcc}</span> <span class="lookup-found">➔ ${matchedCid}</span>`;
+                row.innerHTML = `<td class="lookup-found">${matchedCid}</td><td>${queryAcc}</td>`;
             } else {
-                row.innerHTML = `<span>${queryAcc}</span> <span class="lookup-notfound">➔ ❌ 找不到對應 CID</span>`;
+                row.innerHTML = `<td class="lookup-notfound">❌ 找不到</td><td>${queryAcc}</td>`;
             }
-            resultsContainer.appendChild(row);
+            tbody.appendChild(row);
         });
     }
 
@@ -695,11 +725,11 @@ account_xyz_02" style="height: 100px;"></textarea>
         const rows = document.querySelectorAll('.lookup-item');
         if (rows.length === 0) return;
         
-        let textToCopy = '';
+        let textToCopy = 'CID\tAccount\n';
         rows.forEach(row => {
-            const spans = row.querySelectorAll('span');
-            if (spans.length === 2) {
-                textToCopy += `${spans[0].innerText} ${spans[1].innerText}\n`;
+            const cells = row.querySelectorAll('td');
+            if (cells.length === 2) {
+                textToCopy += `${cells[0].innerText}\t${cells[1].innerText}\n`;
             }
         });
 
