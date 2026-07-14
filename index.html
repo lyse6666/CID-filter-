@@ -299,6 +299,36 @@
         .cid-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 6px 0; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); transition: all 0.2s; }
         .cid-item-wrapper:hover { border-color: var(--primary-color); background-color: #f0f7ff; }
         .cid-click-area { flex: 1; cursor: pointer; font-weight: 500; color: #334155; }
+
+        /* 新增：帳號反查工具專用樣式 */
+        .reverse-lookup-container {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+        .lookup-result-box {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 13px;
+        }
+        .lookup-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .lookup-item:last-child {
+            border-bottom: none;
+        }
+        .lookup-found { color: var(--success-color); font-weight: bold; }
+        .lookup-notfound { color: var(--danger-color); font-weight: 500; }
     </style>
 </head>
 <body>
@@ -346,6 +376,28 @@
                 <div id="syncStatus" class="status-text status-loading">⏳ 正在同步雲端選單...</div>
                 <div id="cidListContainer" class="list-container"></div>
                 <button class="btn btn-danger" onclick="clearAllRecords()">🗑️ 清除所有紀錄</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔍 帳號反查 CID 工具</h3>
+            <div class="form-group">
+                <label>請輸入要查詢的帳號 (每行一個)：</label>
+                <textarea id="lookupInput" placeholder="例如：
+account_abc_01
+account_xyz_02" style="height: 100px;"></textarea>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-blue" style="flex: 1; margin-bottom: 0;" onclick="executeAccountLookup()">⚡ 開始反查</button>
+                <button class="btn btn-danger" style="margin-top: 0; border-radius: 8px; font-weight: 600; padding: 11px;" onclick="clearLookup()">🧹 清空</button>
+            </div>
+            
+            <div id="lookupResultWrapper" style="display: none;" class="reverse-lookup-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="font-weight: bold; font-size: 13px; color: #475569;">🔍 查詢對照結果：</label>
+                    <span style="font-size: 12px; color: var(--primary-color); cursor: pointer; font-weight: bold;" onclick="copyLookupResults()">📋 複製結果</span>
+                </div>
+                <div id="lookupResults" class="lookup-result-box"></div>
             </div>
         </div>
     </div>
@@ -587,6 +639,83 @@
         updateCidDropdownAndList();
         fetch(CLOUD_API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "clearAll" }) })
         .then(() => { setTimeout(loadFromCloud, 1200); });
+    }
+
+    // ================= 🌟 新增：帳號反查 CID 執行邏輯 =================
+    function executeAccountLookup() {
+        const inputVal = document.getElementById('lookupInput').value.trim();
+        const resultWrapper = document.getElementById('lookupResultWrapper');
+        const resultsContainer = document.getElementById('lookupResults');
+        
+        if (!inputVal) {
+            alert('請先輸入至少一個要反查的帳號！');
+            return;
+        }
+
+        // 解析使用者輸入的查詢帳號，支援多種常見分隔符
+        const queryAccounts = inputVal.split(/[\n,; ]+/).map(a => a.trim()).filter(a => a);
+        if (queryAccounts.length === 0) {
+            alert('請輸入有效的查詢格式。');
+            return;
+        }
+
+        resultsContainer.innerHTML = '';
+        resultWrapper.style.display = 'block';
+
+        // 建立不分大小寫的反查索引地圖： { "lowercase_account": "Original_CID" }
+        const reverseMap = {};
+        Object.keys(cloudDatabase).forEach(cid => {
+            const list = cloudDatabase[cid] || [];
+            list.forEach(acc => {
+                if (acc) {
+                    reverseMap[acc.toString().trim().toLowerCase()] = cid;
+                }
+            });
+        });
+
+        // 開始反查並渲染結果
+        queryAccounts.forEach(queryAcc => {
+            const key = queryAcc.toLowerCase();
+            const matchedCid = reverseMap[key];
+            
+            const row = document.createElement('div');
+            row.className = 'lookup-item';
+            
+            if (matchedCid) {
+                row.innerHTML = `<span>${queryAcc}</span> <span class="lookup-found">➔ ${matchedCid}</span>`;
+            } else {
+                row.innerHTML = `<span>${queryAcc}</span> <span class="lookup-notfound">➔ ❌ 找不到對應 CID</span>`;
+            }
+            resultsContainer.appendChild(row);
+        });
+    }
+
+    // 複製反查對照結果
+    function copyLookupResults() {
+        const rows = document.querySelectorAll('.lookup-item');
+        if (rows.length === 0) return;
+        
+        let textToCopy = '';
+        rows.forEach(row => {
+            const spans = row.querySelectorAll('span');
+            if (spans.length === 2) {
+                textToCopy += `${spans[0].innerText} ${spans[1].innerText}\n`;
+            }
+        });
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            alert('對照結果已複製到剪貼簿！');
+        }).catch(err => {
+            console.error('複製失敗: ', err);
+            alert('複製失敗，請手動全選複製。');
+        });
+    }
+
+    // 清除反查輸入
+    function clearLookup() {
+        document.getElementById('lookupInput').value = '';
+        document.getElementById('lookupResults').innerHTML = '';
+        document.getElementById('lookupResultWrapper').style.display = 'none';
     }
 
     // ================= 深度優化版篩選核心 =================
